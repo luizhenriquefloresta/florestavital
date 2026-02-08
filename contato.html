@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cadastre-se na Floresta Vital - Junte-se à rede agroecológica regenerativa e conecte-se com quem cultiva o futuro.">
+  <title>Contato & Cadastro | Floresta Vital</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="logo">Floresta <span>Vital</span></a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Início</a></li>
+        <li><a href="sobre.html">Sobre</a></li>
+        <li><a href="projetos.html">Projetos</a></li>
+        <li><a href="compras-coletivas.html">Compra Coletiva</a></li>
+        <li><a href="contato.html" class="active">Contato</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Cabeçalho -->
+    <section class="section" style="padding-top: calc(80px + var(--space-2xl));" data-reveal>
+      <div class="container" style="max-width: 700px;">
+        <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); margin-bottom: var(--space-sm);">Junte-se à Rede</p>
+        <h1 style="color: var(--forest); margin-bottom: var(--space-md);">Cadastre-se e Conecte-se</h1>
+        <p style="font-size: 1.1rem; color: var(--text-soft); line-height: 1.8;">
+          Preencha o formulário abaixo e entraremos em contato para te conectar à floresta.
+        </p>
+      </div>
+    </section>
+
+    <!-- Formulário de Cadastro -->
+    <section class="section section-alt">
+      <div class="container" style="max-width: 600px;">
+        <div class="card" data-reveal>
+          <form action="mailto:contato@florestavital.com" method="post" enctype="text/plain">
+            <div class="form-group">
+              <label for="nome">Nome completo *</label>
+              <input type="text" id="nome" name="nome" required placeholder="Seu nome">
+            </div>
+            <div class="form-group">
+              <label for="email">E-mail *</label>
+              <input type="email" id="email" name="email" required placeholder="seu@email.com">
+            </div>
+            <div class="form-group">
+              <label for="telefone">Telefone / WhatsApp</label>
+              <input type="tel" id="telefone" name="telefone" placeholder="(00) 00000-0000">
+            </div>
+            <div class="form-group">
+              <label for="cidade">Cidade / Região</label>
+              <input type="text" id="cidade" name="cidade" placeholder="Onde você está">
+            </div>
+            <div class="form-group">
+              <label for="interesse">Como você se identifica? *</label>
+              <select id="interesse" name="interesse" required>
+                <option value="">Selecione uma opção</option>
+                <option value="agricultor">Agricultor(a)</option>
+                <option value="educador">Educador(a) ambiental</option>
+                <option value="tecnico">Técnico(a) ou estudante</option>
+                <option value="jovem">Jovem regenerador(a)</option>
+                <option value="parceiro">Parceiro(a) ou empreendedor(a)</option>
+                <option value="transicao">Em transição de vida</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="mensagem">Conte um pouco sobre você e o que te move *</label>
+              <textarea id="mensagem" name="mensagem" required placeholder="Por que quer fazer parte da Floresta Vital? Que contribuições ou interesses você traz?"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: var(--space-sm);">
+              Enviar Cadastro
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contato direto -->
+    <section class="section">
+      <div class="container" style="text-align: center;" data-reveal>
+        <h2 style="color: var(--forest); margin-bottom: var(--space-md);">Prefere falar direto?</h2>
+        <p style="color: var(--text-soft); margin-bottom: var(--space-lg);">
+          <a href="mailto:contato@florestavital.com" style="font-weight: 500;">contato@florestavital.com</a><br>
+          <span style="font-size: 0.95rem;">@floresta.vital</span>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container" style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-lg);">
+      <div>
+        <p style="font-family: var(--font-display); font-size: 1.25rem; margin-bottom: var(--space-sm);">Floresta Vital</p>
+        <p style="opacity: 0.9; font-size: 0.9rem;">Rede Agroecológica Regenerativa</p>
+      </div>
+      <div>
+        <p style="font-size: 0.9rem; margin-bottom: var(--space-xs);"><a href="mailto:contato@florestavital.com">contato@florestavital.com</a></p>
+        <p style="font-size: 0.9rem;">@floresta.vital</p>
+      </div>
+    </div>
+    <p style="text-align: center; margin-top: var(--space-lg); font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital — Cultivando o Futuro</p>
+  </footer>
+
+  <script src="js/animations.js"></script>
+  <script>
+    window.addEventListener('scroll', () => {
+      document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
+    });
+    var toggle = document.getElementById('menuToggle');
+    var nav = document.getElementById('navLinks');
+    function closeMenu() {
+      toggle.classList.remove('active');
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    toggle.addEventListener('click', function() {
+      this.classList.toggle('active');
+      this.setAttribute('aria-expanded', this.classList.contains('active'));
+      nav.classList.toggle('open');
+      document.body.style.overflow = this.classList.contains('active') ? 'hidden' : '';
+    });
+    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  </script>
+</body>
+</html>

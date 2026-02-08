@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Entre na lista de compra coletiva mensal da Floresta Vital - alimentos saudáveis direto de produtores agroecológicos.">
+  <title>Compra Coletiva Mensal | Floresta Vital</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid rgba(45, 74, 62, 0.08);
+    }
+    .item-row:last-of-type { border-bottom: none; }
+    .item-row label { margin-bottom: 0; flex: 1; }
+    .item-row input[type="number"] {
+      width: 80px;
+      min-width: 80px;
+      text-align: center;
+    }
+    .form-divider {
+      margin: var(--space-lg) 0 var(--space-md);
+      padding-top: var(--space-md);
+      border-top: 1px solid rgba(45, 74, 62, 0.12);
+    }
+    .form-divider h3 {
+      font-size: 1.1rem;
+      color: var(--forest);
+      margin-bottom: var(--space-md);
+    }
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="logo">Floresta <span>Vital</span></a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Início</a></li>
+        <li><a href="sobre.html">Sobre</a></li>
+        <li><a href="projetos.html">Projetos</a></li>
+        <li><a href="compras-coletivas.html" class="active">Compra Coletiva</a></li>
+        <li><a href="contato.html">Contato</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Cabeçalho -->
+    <section class="section" style="padding-top: calc(80px + var(--space-2xl));" data-reveal>
+      <div class="container" style="max-width: 700px;">
+        <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); margin-bottom: var(--space-sm);">Rede Agroecológica</p>
+        <h1 style="color: var(--forest); margin-bottom: var(--space-md);">Compra Coletiva Mensal</h1>
+        <p style="font-size: 1.1rem; color: var(--text-soft); line-height: 1.8;">
+          Preencha o formulário indicando as quantidades desejadas. Entraremos em contato para organizar a entrega mensal com produtores da rede.
+        </p>
+      </div>
+    </section>
+
+    <!-- Formulário -->
+    <section class="section section-alt">
+      <div class="container" style="max-width: 600px;">
+        <div class="card" data-reveal>
+          <form action="mailto:contato@florestavital.com?subject=Compra%20Coletiva%20-%20Pedido%20Mensal" method="post" enctype="text/plain">
+            <div class="form-divider">
+              <h3>Seus dados</h3>
+            </div>
+            <div class="form-group">
+              <label for="nome">Nome completo *</label>
+              <input type="text" id="nome" name="nome" required placeholder="Seu nome">
+            </div>
+            <div class="form-group">
+              <label for="email">E-mail *</label>
+              <input type="email" id="email" name="email" required placeholder="seu@email.com">
+            </div>
+            <div class="form-group">
+              <label for="telefone">Telefone / WhatsApp *</label>
+              <input type="tel" id="telefone" name="telefone" required placeholder="(00) 00000-0000">
+            </div>
+            <div class="form-group">
+              <label for="bairro">Bairro ou região de retirada</label>
+              <input type="text" id="bairro" name="bairro" placeholder="Onde prefere retirar o pedido">
+            </div>
+
+            <div class="form-divider">
+              <h3>Itens da cesta — indique a quantidade desejada (unidades ou kg)</h3>
+              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Deixe 0 para itens que não deseja.</p>
+            </div>
+
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="arroz">Arroz integral</label>
+              <input type="number" id="arroz" name="arroz_integral" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="feijao">Feijão</label>
+              <input type="number" id="feijao" name="feijao" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="azeite">Azeite extra virgem</label>
+              <input type="number" id="azeite" name="azeite" min="0" value="0" placeholder="un">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="ovos">Ovos caipira</label>
+              <input type="number" id="ovos" name="ovos" min="0" value="0" placeholder="dúzia">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="frutas">Frutas da época</label>
+              <input type="number" id="frutas" name="frutas" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="verduras">Verduras e legumes orgânicos</label>
+              <input type="number" id="verduras" name="verduras" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="mandioca">Mandioca / batata doce</label>
+              <input type="number" id="mandioca" name="mandioca" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="farinha">Farinha (integral ou mandioca)</label>
+              <input type="number" id="farinha" name="farinha" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="mel">Mel ou açúcar mascavo</label>
+              <input type="number" id="mel" name="mel" min="0" value="0" placeholder="kg">
+            </div>
+            <div class="item-row form-group" style="margin-bottom: 0;">
+              <label for="cha">Café ou ervas para chá</label>
+              <input type="number" id="cha" name="cafe_ervas" min="0" value="0" placeholder="un">
+            </div>
+
+            <div class="form-group form-divider">
+              <label for="obs">Observações</label>
+              <textarea id="obs" name="observacoes" placeholder="Alergias, preferências, datas de viagem, etc." style="min-height: 80px;"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: var(--space-sm);">
+              Entrar na lista de compra coletiva
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Info -->
+    <section class="section">
+      <div class="container" style="max-width: 600px; text-align: center;" data-reveal>
+        <p style="color: var(--text-soft); font-size: 0.95rem;">
+          Os valores e a disponibilidade variam conforme a safra e os produtores da rede. Após o envio, nossa equipe entrará em contato para confirmar seu pedido e combinar o valor e o ponto de retirada.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container" style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-lg);">
+      <div>
+        <p style="font-family: var(--font-display); font-size: 1.25rem; margin-bottom: var(--space-sm);">Floresta Vital</p>
+        <p style="opacity: 0.9; font-size: 0.9rem;">Rede Agroecológica Regenerativa</p>
+      </div>
+      <div>
+        <p style="font-size: 0.9rem; margin-bottom: var(--space-xs);"><a href="mailto:contato@florestavital.com">contato@florestavital.com</a></p>
+        <p style="font-size: 0.9rem;">@floresta.vital</p>
+      </div>
+    </div>
+    <p style="text-align: center; margin-top: var(--space-lg); font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital — Cultivando o Futuro</p>
+  </footer>
+
+  <script src="js/animations.js"></script>
+  <script>
+    window.addEventListener('scroll', () => {
+      document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
+    });
+    var toggle = document.getElementById('menuToggle');
+    var nav = document.getElementById('navLinks');
+    function closeMenu() {
+      toggle.classList.remove('active');
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    toggle.addEventListener('click', function() {
+      this.classList.toggle('active');
+      this.setAttribute('aria-expanded', this.classList.contains('active'));
+      nav.classList.toggle('open');
+      document.body.style.overflow = this.classList.contains('active') ? 'hidden' : '';
+    });
+    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  </script>
+</body>
+</html>

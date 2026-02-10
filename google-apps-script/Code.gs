@@ -54,6 +54,18 @@ function doGet(e) {
     var tel = (params.telefone || '').toString().trim();
     return getMyOrders(tel);
   }
+  if (action === 'updateOrderStatus') {
+    var t = params.token || '';
+    if (!isAdminTokenValid(t)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    var orderId = (params.orderId || '').toString().trim();
+    var status = (params.status || '').toString().trim().toLowerCase();
+    if (!orderId || !status) {
+      return jsonResponse({ ok: false, error: 'orderId e status são obrigatórios' }, 400);
+    }
+    return postUpdateOrderStatus({ action: 'updateOrderStatus', orderId: orderId, status: status });
+  }
 
   return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
 }
@@ -63,6 +75,7 @@ function doPost(e) {
   var token = (e && e.parameter && e.parameter.token) || null;
 
   if (!blob) {
+    Logger.log('[doPost] No body');
     return jsonResponse({ ok: false, error: 'No body' }, 400);
   }
 
@@ -70,8 +83,12 @@ function doPost(e) {
   try {
     data = JSON.parse(blob);
   } catch (err) {
+    Logger.log('[doPost] Invalid JSON: ' + (err.message || err));
     return jsonResponse({ ok: false, error: 'Invalid JSON' }, 400);
   }
+
+  var action = data && data.action;
+  Logger.log('[doPost] action=' + (action || '(vazio)'));
 
   if (!token && data && data.token) token = data.token;
 
@@ -103,10 +120,16 @@ function doPost(e) {
     if (!isAdminTokenValid(token)) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
     }
-    return postUpdateOrderStatus(data);
+    try {
+      return postUpdateOrderStatus(data);
+    } catch (err) {
+      Logger.log('[doPost] postUpdateOrderStatus exceção: ' + (err.message || err));
+      return jsonResponse({ ok: false, error: 'Erro ao atualizar status: ' + (err.message || String(err)) }, 500);
+    }
   }
 
-  return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
+  Logger.log('[doPost] Unknown action: ' + (action || ''));
+  return jsonResponse({ ok: false, error: 'Unknown action', received: action || null }, 400);
 }
 
 function isAdminTokenValid(token) {
@@ -730,42 +753,51 @@ function postUpdateOrder(data) {
 }
 
 /**
- * POST { action: 'updateOrderStatus', orderId, status: 'separado'|'entregue' }
+ * POST ou GET (action=updateOrderStatus&orderId=...&status=...&token=...).
  * Apenas admin. Altera o status do pedido e reconstrói as abas de separação.
  */
 function postUpdateOrderStatus(data) {
-  if (data.action !== 'updateOrderStatus') {
-    return jsonResponse({ ok: false, error: 'action must be updateOrderStatus' }, 400);
-  }
-  var orderId = (data.orderId || '').toString().trim();
-  var status = (data.status || '').toString().trim().toLowerCase();
-  if (!orderId) {
-    return jsonResponse({ ok: false, error: 'orderId obrigatório' }, 400);
-  }
-  if (status !== 'separado' && status !== 'entregue') {
-    return jsonResponse({ ok: false, error: 'status deve ser "separado" ou "entregue"' }, 400);
-  }
-  var sheetOrders = getSheet(SHEET_ORDERS);
-  if (!sheetOrders) {
-    return jsonResponse({ ok: false, error: 'Planilha Orders não encontrada' }, 500);
-  }
-  var rowNum = findOrderRow(sheetOrders, orderId);
-  if (rowNum === 0) {
-    return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
-  }
-  var statusCell = sheetOrders.getRange(rowNum, 9);
-  var currentStatus = String(statusCell.getValue() || '').trim().toLowerCase();
-  if (currentStatus === 'cancelado') {
-    return jsonResponse({ ok: false, error: 'Não é possível alterar status de pedido cancelado' }, 400);
-  }
-  statusCell.setValue(status);
   try {
-    var ss = getSpreadsheet();
-    if (ss) rebuildAllSeparacaoSheets(ss);
-  } catch (e) {
-    Logger.log('[Separacao] postUpdateOrderStatus: erro ao atualizar abas - ' + (e.message || e));
+    Logger.log('[updateOrderStatus] inicio orderId=' + (data && data.orderId) + ' status=' + (data && data.status));
+    if (!data || data.action !== 'updateOrderStatus') {
+      return jsonResponse({ ok: false, error: 'action must be updateOrderStatus' }, 400);
+    }
+    var orderId = (data.orderId || '').toString().trim();
+    var status = (data.status || '').toString().trim().toLowerCase();
+    if (!orderId) {
+      return jsonResponse({ ok: false, error: 'orderId obrigatório' }, 400);
+    }
+    if (status !== 'separado' && status !== 'entregue') {
+      return jsonResponse({ ok: false, error: 'status deve ser "separado" ou "entregue"' }, 400);
+    }
+    var sheetOrders = getSheet(SHEET_ORDERS);
+    if (!sheetOrders) {
+      Logger.log('[updateOrderStatus] Planilha Orders não encontrada');
+      return jsonResponse({ ok: false, error: 'Planilha Orders não encontrada' }, 500);
+    }
+    var rowNum = findOrderRow(sheetOrders, orderId);
+    if (rowNum === 0) {
+      Logger.log('[updateOrderStatus] Pedido não encontrado: ' + orderId);
+      return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+    }
+    var statusCell = sheetOrders.getRange(rowNum, 9);
+    var currentStatus = String(statusCell.getValue() || '').trim().toLowerCase();
+    if (currentStatus === 'cancelado') {
+      return jsonResponse({ ok: false, error: 'Não é possível alterar status de pedido cancelado' }, 400);
+    }
+    statusCell.setValue(status);
+    Logger.log('[updateOrderStatus] status gravado: ' + status);
+    try {
+      var ss = getSpreadsheet();
+      if (ss) rebuildAllSeparacaoSheets(ss);
+    } catch (e) {
+      Logger.log('[updateOrderStatus] erro ao atualizar abas - ' + (e.message || e));
+    }
+    return jsonResponse({ ok: true, message: 'Status atualizado para ' + status });
+  } catch (err) {
+    Logger.log('[updateOrderStatus] exceção: ' + (err.message || err));
+    return jsonResponse({ ok: false, error: 'Erro interno: ' + (err.message || String(err)) }, 500);
   }
-  return jsonResponse({ ok: true, message: 'Status atualizado para ' + status });
 }
 
 /**

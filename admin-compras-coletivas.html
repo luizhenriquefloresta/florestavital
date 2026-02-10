@@ -7,22 +7,40 @@
   <title>Admin — Compra Coletiva | Floresta Vital</title>
   <link rel="stylesheet" href="css/styles.css">
   <style>
-    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: var(--space-lg); padding-top: calc(80px + var(--space-lg)); }
+    html { overflow-x: hidden; }
+    body { overflow-x: hidden; max-width: 100vw; }
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: var(--space-lg); padding-top: calc(80px + var(--space-lg)); box-sizing: border-box; width: 100%; }
     .admin-login .card { max-width: 400px; margin: 0 auto; }
     .admin-msg { margin: var(--space-md) 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); }
     .admin-msg-ok { background: rgba(107, 142, 106, 0.15); color: var(--forest); }
     .admin-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
-    .admin-table { width: 100%; border-collapse: collapse; margin: var(--space-md) 0; font-size: 0.9rem; }
+    .admin-table { width: 100%; min-width: 680px; border-collapse: collapse; margin: var(--space-md) 0; font-size: 0.9rem; }
     .admin-table th, .admin-table td { padding: var(--space-xs) var(--space-sm); text-align: left; border-bottom: 1px solid rgba(45, 74, 62, 0.1); }
     .admin-table th { background: var(--sand); color: var(--forest); font-weight: 600; }
-    .admin-table input[type="text"], .admin-table input[type="number"] { width: 100%; padding: 4px 8px; border: 1px solid var(--sand); border-radius: var(--radius-sm); }
+    .admin-table input[type="text"], .admin-table input[type="number"] { width: 100%; min-width: 0; padding: 4px 8px; border: 1px solid var(--sand); border-radius: var(--radius-sm); box-sizing: border-box; }
     .admin-table input[type="checkbox"] { margin: 0; }
     .admin-section { margin-bottom: var(--space-xl); }
     .admin-section h2 { color: var(--forest); margin-bottom: var(--space-md); font-size: 1.25rem; }
     .admin-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-md); }
-    .admin-actions .btn { margin: 0; }
+    .admin-actions .btn { margin: 0; min-height: 44px; }
     .admin-back { display: inline-block; margin-bottom: var(--space-md); color: var(--sage); font-size: 0.9rem; }
     .admin-back:hover { color: var(--forest); }
+    .admin-table-wrap { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg); }
+    .admin-table-wrap .admin-table { margin-left: 0; margin-right: 0; }
+    @media (max-width: 768px) {
+      .admin-wrap { padding: var(--space-md); padding-top: calc(70px + var(--space-md)); }
+      .admin-actions { flex-direction: column; align-items: stretch; }
+      .admin-actions .btn { width: 100%; }
+      .admin-actions[style*="space-between"] { flex-direction: column; }
+      .admin-actions[style*="space-between"] h2 { margin-bottom: var(--space-sm); }
+      .admin-table-wrap { margin: 0 -var(--space-md); padding: 0 var(--space-md); }
+      .admin-table { font-size: 0.85rem; }
+      .admin-table th, .admin-table td { padding: var(--space-xs) 6px; }
+    }
+    @media (max-width: 480px) {
+      .admin-wrap { padding: var(--space-sm); padding-top: calc(60px + var(--space-sm)); }
+      .admin-table-wrap { margin: 0 -var(--space-sm); padding: 0 var(--space-sm); }
+    }
   </style>
 </head>
 <body>
@@ -64,7 +82,7 @@
         <div class="admin-actions">
           <button type="button" class="btn btn-primary" id="adminBtnSalvar">Salvar alterações</button>
         </div>
-        <div style="overflow-x: auto;">
+        <div class="admin-table-wrap">
           <table class="admin-table" id="adminItensTable" aria-label="Itens do catálogo">
             <thead>
               <tr>
@@ -93,7 +111,7 @@
         <div class="admin-actions">
           <button type="button" class="btn btn-secondary" id="adminBtnExportCsv">Exportar CSV</button>
         </div>
-        <div style="overflow-x: auto;">
+        <div class="admin-table-wrap">
           <table class="admin-table" id="adminOrdersTable" aria-label="Pedidos recentes">
             <thead>
               <tr>

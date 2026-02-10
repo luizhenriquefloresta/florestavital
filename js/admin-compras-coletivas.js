@@ -323,11 +323,9 @@
     var token = getToken();
     if (!token) return logout();
     if (clickedBtn) clickedBtn.disabled = true;
-    fetch(apiBase, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'updateOrderStatus', token: token, orderId: orderId, status: status })
-    })
+    var url = apiBase + '?action=updateOrderStatus&token=' + encodeURIComponent(token) +
+      '&orderId=' + encodeURIComponent(orderId) + '&status=' + encodeURIComponent(status);
+    fetch(url, { method: 'GET' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data && data.ok) {

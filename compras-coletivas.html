@@ -59,6 +59,11 @@
     @media (min-width: 600px) {
       .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; }
     }
+    @media (min-width: 900px) {
+      .cc-container-narrow { max-width: min(720px, 92vw) !important; }
+      .cc-card { max-width: min(640px, 90vw); }
+      .cc-modal-content { max-width: min(560px, 90vw); max-height: 85vh; }
+    }
   </style>
 </head>
 <body>
@@ -79,8 +84,8 @@
   </header>
 
   <main>
-    <section class="section" style="padding-top: calc(80px + var(--space-lg)); padding-bottom: var(--space-lg);" data-reveal>
-      <div class="container" style="max-width: 600px;">
+    <section class="section cc-section-hero" style="padding-top: calc(80px + var(--space-lg)); padding-bottom: var(--space-lg);" data-reveal>
+      <div class="container cc-container-narrow" style="max-width: 600px;">
         <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); margin-bottom: var(--space-xs);">Rede Agroecológica</p>
         <h1 style="color: var(--forest); margin-bottom: var(--space-sm); font-size: clamp(1.5rem, 4vw, 2rem);">Compra Coletiva Mensal</h1>
         <p style="font-size: 1rem; color: var(--text-soft); line-height: 1.7;">
@@ -90,7 +95,7 @@
     </section>
 
     <section class="section section-alt" style="padding-top: var(--space-md); padding-bottom: var(--space-xl);">
-      <div class="container" style="max-width: 560px;">
+      <div class="container cc-container-narrow" style="max-width: 560px;">
         <div class="card cc-card" data-reveal>
           <!-- Passo 1: Celular -->
           <div id="ccStepPhone" class="cc-section active">

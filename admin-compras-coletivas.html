@@ -9,7 +9,7 @@
   <style>
     html { overflow-x: hidden; }
     body { overflow-x: hidden; max-width: 100vw; }
-    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: var(--space-lg); padding-top: calc(80px + var(--space-lg)); box-sizing: border-box; width: 100%; }
+    .admin-wrap { max-width: min(1400px, 96vw); margin: 0 auto; padding: var(--space-lg); padding-top: calc(80px + var(--space-lg)); box-sizing: border-box; width: 100%; }
     .admin-login .card { max-width: 400px; margin: 0 auto; }
     .admin-msg { margin: var(--space-md) 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); }
     .admin-msg-ok { background: rgba(107, 142, 106, 0.15); color: var(--forest); }
@@ -27,6 +27,11 @@
     .admin-back:hover { color: var(--forest); }
     .admin-table-wrap { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; margin: 0 calc(-1 * var(--space-lg)); padding: 0 var(--space-lg); }
     .admin-table-wrap .admin-table { margin-left: 0; margin-right: 0; }
+    @media (min-width: 1024px) {
+      .admin-wrap { max-width: min(1400px, 96vw); padding-left: var(--space-xl); padding-right: var(--space-xl); }
+      .admin-table-wrap { overflow-x: visible; margin: 0; padding: 0; }
+      .admin-table { min-width: auto; width: 100%; table-layout: auto; }
+    }
     @media (max-width: 768px) {
       .admin-wrap { padding: var(--space-md); padding-top: calc(70px + var(--space-md)); }
       .admin-actions { flex-direction: column; align-items: stretch; }
@@ -41,6 +46,14 @@
       .admin-wrap { padding: var(--space-sm); padding-top: calc(60px + var(--space-sm)); }
       .admin-table-wrap { margin: 0 -var(--space-sm); padding: 0 var(--space-sm); }
     }
+    .admin-status-legend { font-size: 0.875rem; color: var(--text-soft); margin-bottom: var(--space-md); }
+    .admin-status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .admin-status-ativo { background: rgba(107, 142, 106, 0.2); color: var(--forest); }
+    .admin-status-separado { background: rgba(70, 100, 180, 0.15); color: #2d4a9e; }
+    .admin-status-entregue { background: rgba(80, 120, 80, 0.2); color: #2d5a2d; }
+    .admin-status-cancelado { background: rgba(120, 80, 80, 0.15); color: #8b4545; }
+    .admin-acoes-next { font-size: 0.85rem; }
+    .admin-acoes-done { color: var(--text-soft); font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -108,6 +121,7 @@
 
       <section class="admin-section">
         <h2>Pedidos recentes (últimos 20)</h2>
+        <p class="admin-status-legend">Fluxo: <strong>Ativo</strong> (na separação) → <strong>Separado</strong> (aba Pedidos separados) → <strong>Entregue</strong> (aba Pedidos entregues). Use os botões para avançar o status.</p>
         <div class="admin-actions">
           <button type="button" class="btn btn-secondary" id="adminBtnExportCsv">Exportar CSV</button>
         </div>

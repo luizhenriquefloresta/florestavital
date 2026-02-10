@@ -103,6 +103,13 @@ img {
   padding: 0 var(--space-md);
 }
 
+@media (min-width: 1200px) {
+  .container {
+    max-width: min(1280px, 96vw);
+    padding: 0 var(--space-lg);
+  }
+}
+
 /* Header */
 .header {
   position: fixed;
@@ -129,6 +136,14 @@ img {
   margin: 0 auto;
   padding-left: var(--space-md);
   padding-right: var(--space-md);
+}
+
+@media (min-width: 1200px) {
+  .nav {
+    max-width: min(1280px, 96vw);
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
 }
 
 .logo {

@@ -273,6 +273,14 @@
     return 'Ativo';
   }
 
+  function statusBadgeClass(s) {
+    s = (s || '').toString().toLowerCase();
+    if (s === 'cancelado') return 'admin-status-cancelado';
+    if (s === 'separado') return 'admin-status-separado';
+    if (s === 'entregue') return 'admin-status-entregue';
+    return 'admin-status-ativo';
+  }
+
   function renderOrders(orders) {
     var tbody = elOrdersTable && elOrdersTable.querySelector('tbody');
     if (!tbody) return;
@@ -290,15 +298,21 @@
         itensStr = o.itens || '';
       }
       var status = (o.status || '').toLowerCase();
+      var statusBadge = '<span class="admin-status-badge ' + statusBadgeClass(o.status) + '">' + escapeHtml(statusLabel(o.status)) + '</span>';
       var acoes = '';
       if (status === 'ativo') {
-        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '" title="Marcar como separado">Separado</button>';
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado admin-acoes-next" data-order-id="' + escapeHtml(o.orderId) + '" title="Pedido entra na aba Pedidos separados">→ Separado</button>';
       } else if (status === 'separado') {
-        acoes = '<button type="button" class="btn btn-primary admin-btn-entregue" data-order-id="' + escapeHtml(o.orderId) + '" title="Marcar como entregue">Entregue</button>';
-      } else if (status !== 'cancelado' && status !== 'entregue') {
-        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '">Separado</button>';
+        acoes = '<button type="button" class="btn btn-primary admin-btn-entregue admin-acoes-next" data-order-id="' + escapeHtml(o.orderId) + '" title="Pedido entra na aba Pedidos entregues">→ Entregue</button>';
+      } else if (status === 'entregue') {
+        acoes = '<span class="admin-acoes-done" title="Pedido na aba Pedidos entregues">✓ Entregue</span>';
+      } else if (status === 'cancelado') {
+        acoes = '<span class="admin-acoes-done">Cancelado</span>';
+      } else {
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '">→ Separado</button>';
       }
       var tr = document.createElement('tr');
+      tr.setAttribute('data-status', status);
       tr.innerHTML =
         '<td><code>' + escapeHtml(o.orderId) + '</code></td>' +
         '<td>' + escapeHtml(o.timestamp) + '</td>' +
@@ -306,9 +320,9 @@
         '<td>' + escapeHtml(o.email) + '</td>' +
         '<td>' + escapeHtml(o.telefone) + '</td>' +
         '<td>' + escapeHtml(o.bairro) + '</td>' +
-        '<td>' + escapeHtml(statusLabel(o.status)) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
         '<td style="font-size:0.85rem;">' + escapeHtml(itensStr) + '</td>' +
-        '<td style="white-space:nowrap;">' + acoes + '</td>';
+        '<td class="admin-cell-acoes">' + acoes + '</td>';
       tbody.appendChild(tr);
     });
     tbody.querySelectorAll('.admin-btn-separado').forEach(function (btn) {
@@ -322,7 +336,10 @@
   function setOrderStatus(orderId, status, clickedBtn) {
     var token = getToken();
     if (!token) return logout();
-    if (clickedBtn) clickedBtn.disabled = true;
+    if (clickedBtn) {
+      clickedBtn.disabled = true;
+      clickedBtn.textContent = 'Salvando…';
+    }
     var sep = apiBase.indexOf('?') >= 0 ? '&' : '?';
     var urlWithAction = apiBase + sep + 'action=updateOrderStatus';
     var body = { action: 'updateOrderStatus', token: token, orderId: orderId, status: status };
@@ -334,7 +351,10 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data && data.ok) {
-          showMsg('Status atualizado para ' + (status === 'separado' ? 'Separado' : 'Entregue') + '.', false);
+          var msg = status === 'separado'
+            ? 'Status: Separado. Pedido na aba "Pedidos separados".'
+            : 'Status: Entregue. Pedido na aba "Pedidos entregues".';
+          showMsg(msg, false);
           loadOrders();
         } else {
           var errMsg = (data && data.error) || 'Erro ao atualizar status.';
@@ -342,12 +362,18 @@
             errMsg += ' (recebido: "' + String(data.received) + '")';
           }
           showMsg(errMsg, true);
-          if (clickedBtn) clickedBtn.disabled = false;
+          if (clickedBtn) {
+            clickedBtn.disabled = false;
+            clickedBtn.textContent = status === 'separado' ? '→ Separado' : '→ Entregue';
+          }
         }
       })
       .catch(function () {
         showMsg('Erro de conexão. Verifique js/config.js e se o backend foi implantado (nova versão).', true);
-        if (clickedBtn) clickedBtn.disabled = false;
+        if (clickedBtn) {
+          clickedBtn.disabled = false;
+          clickedBtn.textContent = status === 'separado' ? '→ Separado' : '→ Entregue';
+        }
       });
   }
 

@@ -44,8 +44,9 @@
    - F1: `bairro`
    - G1: `observacoes`
    - H1: `itens`
+   - I1: `status` (obrigatório para Separado/Entregue no admin; valores: ativo, separado, entregue, cancelado)
 
-As linhas de pedidos serão preenchidas automaticamente pelo script. O campo **email** pode ficar vazio (é opcional no pedido).
+As linhas de pedidos serão preenchidas automaticamente pelo script. O campo **email** pode ficar vazio (é opcional no pedido). Se a planilha já existia sem a coluna **status**, use no menu da planilha **Compra Coletiva** → **Garantir coluna Status na aba Orders** (ou execute **runGarantirColunaStatus** no Apps Script).
 
 Para **separar pedidos** em linhas (um item por linha, com nome, telefone, quantidade, valor e total), use o menu **Compra Coletiva** → **Atualizar Separação** na planilha; o script criará as abas **Separação** (visão geral) e **Separação por pedido**. Detalhes em [SEPARACAO-PEDIDOS.md](SEPARACAO-PEDIDOS.md).
 

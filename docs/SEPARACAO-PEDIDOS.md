@@ -78,6 +78,10 @@ Se o menu **Compra Coletiva** não aparecer, recarregue a planilha (F5) ou execu
 
 **Teste de conexão:** no editor do Apps Script, execute a função **runTestarConexao**. Se retornar "OK: planilha encontrada", o script está achando a planilha; se der erro, a mensagem indica o que falta (por exemplo, configurar SPREADSHEET_ID).
 
+**Coluna Status na aba Orders:** a aba Orders precisa da coluna 9 **status** (ativo, separado, entregue, cancelado). Se a planilha foi criada antes dessa funcionalidade, abra a planilha → menu **Compra Coletiva** → **Garantir coluna Status na aba Orders** (ou execute **runGarantirColunaStatus** no editor). Isso cria a coluna e preenche "ativo" nas linhas vazias.
+
+**Se aparecer "Unknown action" ao clicar em Separado/Entregue no admin:** (1) Copie o **Code.gs** mais recente do repositório para o Apps Script e faça **Implantar → Nova versão**. (2) Execute **runGarantirColunaStatus** na planilha. (3) Em **Execuções** do Apps Script, abra a última execução e veja o **Log**: deve aparecer `[doGet] action="updateOrderStatus"`. Se aparecer `action=""`, a URL do proxy ou a implantação não está passando os parâmetros.
+
 **Logs para diagnosticar:** o script grava logs com o prefixo `[Separacao]`. Depois de rodar **runAtualizarSeparacao** (ou de fazer um pedido pelo site), abra no Apps Script: **Execuções** (ícone de relógio) → clique na execução desejada → **Log**. Você verá em que etapa parou (getSpreadsheet, buildDadosSeparacao, criarOuLimparSeparacao) e quantas linhas foram lidas/escritas.
 
 ## Observações

@@ -323,21 +323,30 @@
     var token = getToken();
     if (!token) return logout();
     if (clickedBtn) clickedBtn.disabled = true;
-    var url = apiBase + '?action=updateOrderStatus&token=' + encodeURIComponent(token) +
-      '&orderId=' + encodeURIComponent(orderId) + '&status=' + encodeURIComponent(status);
-    fetch(url, { method: 'GET' })
+    var sep = apiBase.indexOf('?') >= 0 ? '&' : '?';
+    var urlWithAction = apiBase + sep + 'action=updateOrderStatus';
+    var body = { action: 'updateOrderStatus', token: token, orderId: orderId, status: status };
+    fetch(urlWithAction, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data && data.ok) {
           showMsg('Status atualizado para ' + (status === 'separado' ? 'Separado' : 'Entregue') + '.', false);
           loadOrders();
         } else {
-          showMsg((data && data.error) || 'Erro ao atualizar status.', true);
+          var errMsg = (data && data.error) || 'Erro ao atualizar status.';
+          if (data && data.received !== undefined && data.received !== null) {
+            errMsg += ' (recebido: "' + String(data.received) + '")';
+          }
+          showMsg(errMsg, true);
           if (clickedBtn) clickedBtn.disabled = false;
         }
       })
       .catch(function () {
-        showMsg('Erro de conexão.', true);
+        showMsg('Erro de conexão. Verifique js/config.js e se o backend foi implantado (nova versão).', true);
         if (clickedBtn) clickedBtn.disabled = false;
       });
   }

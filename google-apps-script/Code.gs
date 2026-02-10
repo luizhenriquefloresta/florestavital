@@ -26,7 +26,8 @@ function jsonResponse(data, statusCode) {
 
 function doGet(e) {
   var params = e && e.parameter ? e.parameter : {};
-  var action = params.action || '';
+  var action = (params.action || '').toString().trim();
+  Logger.log('[doGet] action="' + action + '" params=' + (Object.keys(params).length) + ' keys=' + Object.keys(params).join(','));
 
   if (action === 'items') {
     return getItemsPublic();
@@ -54,7 +55,7 @@ function doGet(e) {
     var tel = (params.telefone || '').toString().trim();
     return getMyOrders(tel);
   }
-  if (action === 'updateOrderStatus') {
+  if (action === 'updateOrderStatus' || (action && action.toLowerCase() === 'updateorderstatus')) {
     var t = params.token || '';
     if (!isAdminTokenValid(t)) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
@@ -67,7 +68,18 @@ function doGet(e) {
     return postUpdateOrderStatus({ action: 'updateOrderStatus', orderId: orderId, status: status });
   }
 
-  return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
+  if (!action || action === '') {
+    var orderId = (params.orderId || '').toString().trim();
+    var status = (params.status || '').toString().trim().toLowerCase();
+    var t = params.token || '';
+    if (orderId && status && (status === 'separado' || status === 'entregue') && isAdminTokenValid(t)) {
+      Logger.log('[doGet] fallback: token+orderId+status presentes, tratando como updateOrderStatus');
+      return postUpdateOrderStatus({ action: 'updateOrderStatus', orderId: orderId, status: status });
+    }
+  }
+
+  Logger.log('[doGet] Unknown action: "' + action + '"');
+  return jsonResponse({ ok: false, error: 'Unknown action', received: action || '(vazio)' }, 400);
 }
 
 function doPost(e) {
@@ -1153,7 +1165,7 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedido
         rowsPorPedido.push(linhas[i]);
       }
       if (rowsPorPedido.length > 0) {
-        sheet.getRange(2, 1, rowsPorPedido.length + 1, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
+        sheet.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
       }
     }
   }
@@ -1165,7 +1177,7 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedido
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
     if (linhasPorItem.length > 0) {
-      sheetGeral.getRange(2, 1, linhasPorItem.length + 1, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
+      sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
     }
     Logger.log('[Separacao] criarOuLimparSeparacao: aba Separacao OK');
 
@@ -1215,6 +1227,36 @@ function runTestarConexao() {
 }
 
 /**
+ * Garante que a aba Orders tem a coluna 9 "status". Execute UMA VEZ se a planilha foi criada antes do status.
+ * Preenche "ativo" nas linhas que ainda não têm status.
+ */
+function runGarantirColunaStatus() {
+  var ss;
+  try {
+    ss = getSpreadsheet();
+  } catch (e) {
+    return 'Erro: ' + (e.message || e);
+  }
+  var sheet = ss.getSheetByName(SHEET_ORDERS);
+  if (!sheet) return 'Aba Orders não encontrada.';
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 9) {
+    sheet.getRange(1, 9).setValue('status');
+    sheet.getRange(1, 9).setFontWeight('bold');
+    Logger.log('[runGarantirColunaStatus] Coluna status criada.');
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 'Coluna status garantida. Nenhum pedido na planilha.';
+  for (var r = 2; r <= lastRow; r++) {
+    var val = sheet.getRange(r, 9).getValue();
+    if (val === null || val === '' || String(val).trim() === '') {
+      sheet.getRange(r, 9).setValue('ativo');
+    }
+  }
+  return 'Pronto. Aba Orders com coluna "status"; linhas vazias preenchidas com "ativo".';
+}
+
+/**
  * Menu na planilha: Compra Coletiva > Atualizar Separação
  * Ativar: defina o gatilho onOpen no projeto ou execute runAtualizarSeparacao manualmente.
  */
@@ -1224,6 +1266,7 @@ function onOpen() {
     if (ui) {
       ui.createMenu('Compra Coletiva')
         .addItem('Atualizar Separação (pedidos em linhas)', 'runAtualizarSeparacao')
+        .addItem('Garantir coluna Status na aba Orders', 'runGarantirColunaStatus')
         .addToUi();
     }
   } catch (e) {

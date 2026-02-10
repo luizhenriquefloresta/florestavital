@@ -51,6 +51,14 @@ function doGet(e) {
     }
     return jsonResponse({ ok: false, error: 'Invalid token' }, 401);
   }
+  if (action === 'saveBackup' || action === 'listBackups') {
+    var t = params.token || '';
+    if (!isAdminTokenValid(t)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    if (action === 'saveBackup') return getSaveBackup();
+    if (action === 'listBackups') return getListBackups();
+  }
   if (action === 'myOrders') {
     var tel = (params.telefone || '').toString().trim();
     return getMyOrders(tel);
@@ -139,6 +147,17 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: 'Erro ao atualizar status: ' + (err.message || String(err)) }, 500);
     }
   }
+  if (data.action === 'restoreBackup') {
+    if (!isAdminTokenValid(token)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    try {
+      return postRestoreBackup(data.backupId);
+    } catch (err) {
+      Logger.log('[doPost] postRestoreBackup exceção: ' + (err.message || err));
+      return jsonResponse({ ok: false, error: 'Erro ao restaurar: ' + (err.message || String(err)) }, 500);
+    }
+  }
 
   Logger.log('[doPost] Unknown action: ' + (action || ''));
   return jsonResponse({ ok: false, error: 'Unknown action', received: action || null }, 400);
@@ -177,6 +196,114 @@ function getSheet(name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) return null;
   return sheet;
+}
+
+var BACKUP_FOLDER_NAME = 'Backups Compra Coletiva';
+var BACKUP_LIST_MAX = 30;
+
+/**
+ * Obtém ou cria a pasta de backups no mesmo nível da planilha (pasta do Drive que contém a planilha).
+ */
+function getBackupFolder() {
+  var ss = getSpreadsheet();
+  var file = DriveApp.getFileById(ss.getId());
+  var parents = file.getParents();
+  if (!parents.hasNext()) {
+    throw new Error('Planilha não está em nenhuma pasta do Drive. Backups são salvos na mesma pasta da planilha.');
+  }
+  var parent = parents.next();
+  var folders = parent.getFoldersByName(BACKUP_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return parent.createFolder(BACKUP_FOLDER_NAME);
+}
+
+/**
+ * GET ?action=saveBackup&token=XXX — Cria uma cópia da planilha atual na pasta "Backups Compra Coletiva" (no mesmo Drive).
+ * Retorna { ok, backupId, url, name }.
+ */
+function getSaveBackup() {
+  var ss = getSpreadsheet();
+  var folder = getBackupFolder();
+  var now = new Date();
+  var name = 'Backup ' + Utilities.formatDate(now, Session.getScriptTimeZone() || 'America/Sao_Paulo', 'yyyy-MM-dd HH:mm');
+  var copy = ss.copy(name);
+  var copyFile = DriveApp.getFileById(copy.getId());
+  copyFile.moveTo(folder);
+  var url = 'https://docs.google.com/spreadsheets/d/' + copy.getId() + '/edit';
+  Logger.log('[Backup] Criado: ' + name + ' id=' + copy.getId());
+  return jsonResponse({
+    ok: true,
+    backupId: copy.getId(),
+    url: url,
+    name: name
+  });
+}
+
+/**
+ * GET ?action=listBackups&token=XXX — Lista os últimos backups (planilhas na pasta Backups Compra Coletiva).
+ * Retorna { ok, backups: [ { id, name, date } ] }.
+ */
+function getListBackups() {
+  var folder = getBackupFolder();
+  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+  var list = [];
+  while (files.hasNext() && list.length < BACKUP_LIST_MAX) {
+    var f = files.next();
+    list.push({
+      id: f.getId(),
+      name: f.getName(),
+      date: f.getDateCreated() ? f.getDateCreated().toISOString() : ''
+    });
+  }
+  list.sort(function (a, b) {
+    return (b.date || '').localeCompare(a.date || '');
+  });
+  return jsonResponse({ ok: true, backups: list });
+}
+
+/**
+ * POST { action: 'restoreBackup', token, backupId } — Restaura Items, Users e Orders a partir de um backup.
+ * Sobrescreve as abas Items, Users e Orders da planilha atual com o conteúdo do backup. Não remove outras abas.
+ */
+function postRestoreBackup(backupId) {
+  backupId = (backupId || '').toString().trim();
+  if (!backupId) {
+    return jsonResponse({ ok: false, error: 'backupId é obrigatório' }, 400);
+  }
+  var ssCurrent = getSpreadsheet();
+  var ssBackup;
+  try {
+    ssBackup = SpreadsheetApp.openById(backupId);
+  } catch (e) {
+    Logger.log('[Restore] openById falhou: ' + (e.message || e));
+    return jsonResponse({ ok: false, error: 'Backup não encontrado ou sem permissão. Verifique o ID.' }, 404);
+  }
+  var sheetNames = [SHEET_ITEMS, SHEET_USERS, SHEET_ORDERS];
+  for (var s = 0; s < sheetNames.length; s++) {
+    var name = sheetNames[s];
+    var srcSheet = ssBackup.getSheetByName(name);
+    if (!srcSheet) {
+      Logger.log('[Restore] Backup não tem aba "' + name + '", pulando.');
+      continue;
+    }
+    var values = srcSheet.getDataRange().getValues();
+    if (!values || values.length === 0) continue;
+    var numRows = values.length;
+    var numCols = values[0].length;
+    var destSheet = ssCurrent.getSheetByName(name);
+    if (!destSheet) {
+      destSheet = ssCurrent.insertSheet(name);
+    }
+    destSheet.clear();
+    destSheet.getRange(1, 1, numRows, numCols).setValues(values);
+    if (numRows >= 1) {
+      destSheet.getRange(1, 1, 1, numCols).setFontWeight('bold');
+    }
+    Logger.log('[Restore] Restaurada aba "' + name + '" com ' + numRows + ' linhas.');
+  }
+  return jsonResponse({ ok: true, message: 'Backup restaurado. Abas Items, Users e Orders foram atualizadas.' });
 }
 
 /** Normaliza telefone: só dígitos. */
@@ -846,30 +973,61 @@ function runSetupPlanilha() {
   }
   var firstSheet = sheets[0];
 
-  // Usar a primeira aba como Items (renomear, limpar, preencher)
+  // Usar a primeira aba como Items. Não apagar itens nem pedidos existentes.
   firstSheet.setName(SHEET_ITEMS);
-  firstSheet.clear();
-  firstSheet.getRange(1, 1, 1, 8).setValues([['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem', 'imagem']]);
-  firstSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
-  firstSheet.appendRow(['arroz', 'Arroz integral', 'kg', 'TRUE', 50, 0, 1, '']);
-  firstSheet.appendRow(['feijao', 'Feijão', 'kg', 'TRUE', 30, 0, 2, '']);
-  firstSheet.appendRow(['azeite', 'Azeite extra virgem', 'un', 'TRUE', 20, 0, 3, '']);
-  firstSheet.appendRow(['ovos', 'Ovos caipira', 'dúzia', 'TRUE', 40, 0, 4, '']);
-  firstSheet.appendRow(['verduras', 'Verduras e legumes orgânicos', 'kg', 'TRUE', 25, 0, 5, '']);
+  var lastItemRow = firstSheet.getLastRow();
+  if (lastItemRow >= 2) {
+    // Já existem itens: só garantir cabeçalho, sem limpar nem adicionar exemplos
+    var headerI = firstSheet.getRange(1, 1, 1, 8).getValues()[0];
+    if (!headerI[0] || String(headerI[0]).toLowerCase() !== 'id') {
+      firstSheet.getRange(1, 1, 1, 8).setValues([['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem', 'imagem']]);
+      firstSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+    }
+  } else {
+    firstSheet.clear();
+    firstSheet.getRange(1, 1, 1, 8).setValues([['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem', 'imagem']]);
+    firstSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+    firstSheet.appendRow(['arroz', 'Arroz integral', 'kg', 'TRUE', 50, 0, 1, '']);
+    firstSheet.appendRow(['feijao', 'Feijão', 'kg', 'TRUE', 30, 0, 2, '']);
+    firstSheet.appendRow(['azeite', 'Azeite extra virgem', 'un', 'TRUE', 20, 0, 3, '']);
+    firstSheet.appendRow(['ovos', 'Ovos caipira', 'dúzia', 'TRUE', 40, 0, 4, '']);
+    firstSheet.appendRow(['verduras', 'Verduras e legumes orgânicos', 'kg', 'TRUE', 25, 0, 5, '']);
+  }
 
-  // Criar aba Users se não existir
+  // Criar aba Users se não existir. Não apagar usuários existentes.
   var sheetUsers = ss.getSheetByName(SHEET_USERS);
   if (!sheetUsers) sheetUsers = ss.insertSheet(SHEET_USERS);
-  sheetUsers.clear();
-  sheetUsers.getRange(1, 1, 1, 5).setValues([['telefone', 'nome', 'endereco', 'documento', 'email']]);
-  sheetUsers.getRange(1, 1, 1, 5).setFontWeight('bold');
+  var lastUserRow = sheetUsers.getLastRow();
+  if (lastUserRow >= 2) {
+    // Já existem usuários: só garantir cabeçalho, sem limpar
+    var headerU = sheetUsers.getRange(1, 1, 1, 5).getValues()[0];
+    if (!headerU[0] || String(headerU[0]).toLowerCase() !== 'telefone') {
+      sheetUsers.getRange(1, 1, 1, 5).setValues([['telefone', 'nome', 'endereco', 'documento', 'email']]);
+      sheetUsers.getRange(1, 1, 1, 5).setFontWeight('bold');
+    }
+  } else {
+    sheetUsers.clear();
+    sheetUsers.getRange(1, 1, 1, 5).setValues([['telefone', 'nome', 'endereco', 'documento', 'email']]);
+    sheetUsers.getRange(1, 1, 1, 5).setFontWeight('bold');
+  }
 
-  // Criar aba Orders se não existir
+  // Criar aba Orders se não existir. NUNCA apagar pedidos existentes.
   var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
   if (!sheetOrders) sheetOrders = ss.insertSheet(SHEET_ORDERS);
-  sheetOrders.clear();
-  sheetOrders.getRange(1, 1, 1, 9).setValues([['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens', 'status']]);
-  sheetOrders.getRange(1, 1, 1, 9).setFontWeight('bold');
+  var lastOrderRow = sheetOrders.getLastRow();
+  if (lastOrderRow >= 2) {
+    // Já existem pedidos: só garantir cabeçalho e coluna status, sem limpar
+    if (sheetOrders.getLastColumn() < 9) sheetOrders.getRange(1, 9).setValue('status');
+    var header = sheetOrders.getRange(1, 1, 1, 9).getValues()[0];
+    if (!header[0] || String(header[0]).toLowerCase() !== 'orderid') {
+      sheetOrders.getRange(1, 1, 1, 9).setValues([['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens', 'status']]);
+      sheetOrders.getRange(1, 1, 1, 9).setFontWeight('bold');
+    }
+  } else {
+    sheetOrders.clear();
+    sheetOrders.getRange(1, 1, 1, 9).setValues([['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens', 'status']]);
+    sheetOrders.getRange(1, 1, 1, 9).setFontWeight('bold');
+  }
 
   Logger.log('Planilha alterada: ' + nomePlanilha + ' - ' + planilhaUrl);
   return 'Pronto! Planilha "' + nomePlanilha + '" alterada.\n\nURL desta planilha:\n' + planilhaUrl + '\n\nConfira se a aba do navegador é ESTA mesma URL. Se não for, você estava olhando outra planilha. Abra o link acima e verá Items, Users e Orders.';
@@ -877,6 +1035,9 @@ function runSetupPlanilha() {
 
 /**
  * Lê Orders + Items e retorna { linhasPorItem: [], linhas: [] } para as abas Separacao e Separacao por pedido.
+ * Considera TODOS os pedidos ativos de TODOS os usuários (sem filtrar por usuário).
+ * - Separacao (geral): agrega itens de todos os pedidos ativos (soma quantidades por item).
+ * - Separacao por pedido: um bloco por pedido ativo (todos os usuários), cada pedido com seus itens em linhas.
  * Usado por runAtualizarSeparacao e por postOrder (atualização automática ao criar pedido).
  */
 function buildDadosSeparacao(ss) {
@@ -915,7 +1076,7 @@ function buildDadosSeparacao(ss) {
   var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
   var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
   var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
-  Logger.log('[Separacao] buildDadosSeparacao: orderData.rows=' + orderData.length + ' itemData.rows=' + itemData.length);
+  Logger.log('[Separacao] buildDadosSeparacao: TODOS os pedidos da planilha orderData.rows=' + orderData.length + ' itemData.rows=' + itemData.length);
   var idToNome = {};
   var idToUnidade = {};
   var idToPreco = {};
@@ -928,10 +1089,12 @@ function buildDadosSeparacao(ss) {
 
   var linhas = [];
   var agregadoPorItem = {};
+  var pedidosAtivosCount = 0;
   for (var o = 0; o < orderData.length; o++) {
     var row = orderData[o];
     var status = (row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '') ? String(row[8]).trim().toLowerCase() : 'ativo';
     if (status !== 'ativo') continue;
+    pedidosAtivosCount++;
 
     var orderId = String(row[0] || '').trim();
     var nome = String(row[2] || '').trim();
@@ -979,7 +1142,7 @@ function buildDadosSeparacao(ss) {
     var a = agregadoPorItem[itemId];
     linhasPorItem.push([itemId, a.nome, a.unidade, a.qty, a.preco, a.qty * a.preco]);
   }
-  Logger.log('[Separacao] buildDadosSeparacao: retorna linhasPorItem=' + linhasPorItem.length + ' linhas=' + linhas.length);
+  Logger.log('[Separacao] buildDadosSeparacao: pedidosAtivos=' + pedidosAtivosCount + ' (todos usuarios) linhasPorItem=' + linhasPorItem.length + ' linhas=' + linhas.length);
   if (ssResolvidoAqui) {
     Logger.log('[Separacao] buildDadosSeparacao: chamando rebuildAllSeparacaoSheets (foi executado sem runAtualizarSeparacao)');
     rebuildAllSeparacaoSheets(ss);

@@ -17,6 +17,10 @@
   var elOrdersTable = document.getElementById('adminOrdersTable');
   var elBtnExportCsv = document.getElementById('adminBtnExportCsv');
   var elResumoItens = document.getElementById('adminResumoItens');
+  var elBtnSalvarBackup = document.getElementById('adminBtnSalvarBackup');
+  var elSelectBackup = document.getElementById('adminSelectBackup');
+  var elBtnRestaurarBackup = document.getElementById('adminBtnRestaurarBackup');
+  var elBackupMsg = document.getElementById('adminBackupMsg');
 
   function getToken() {
     return sessionStorage.getItem(STORAGE_TOKEN) || '';
@@ -52,6 +56,7 @@
           showPainel(true);
           loadItens();
           loadOrders();
+          loadBackups();
         } else {
           setToken('');
           showPainel(false);
@@ -81,6 +86,7 @@
           showPainel(true);
           loadItens();
           loadOrders();
+          loadBackups();
         } else {
           showMsg('Token inválido.', true);
         }
@@ -377,6 +383,110 @@
       });
   }
 
+  function showBackupMsg(text, isError) {
+    if (!elBackupMsg) return;
+    elBackupMsg.textContent = text;
+    elBackupMsg.className = 'admin-msg ' + (isError ? 'admin-msg-error' : 'admin-msg-ok');
+    elBackupMsg.style.display = text ? 'block' : 'none';
+  }
+
+  function loadBackups() {
+    var token = getToken();
+    if (!token || !elSelectBackup) return;
+    elSelectBackup.innerHTML = '<option value="">Carregando…</option>';
+    fetch(apiBase + '?action=listBackups&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        elSelectBackup.innerHTML = '<option value="">— Escolha um backup —</option>';
+        if (data && data.ok && data.backups && data.backups.length > 0) {
+          data.backups.forEach(function (b) {
+            var opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = (b.name || b.id) + (b.date ? ' (' + b.date.slice(0, 10) + ')' : '');
+            elSelectBackup.appendChild(opt);
+          });
+        }
+      })
+      .catch(function () {
+        elSelectBackup.innerHTML = '<option value="">Erro ao carregar</option>';
+      });
+  }
+
+  function saveBackup() {
+    var token = getToken();
+    if (!token) return logout();
+    if (elBtnSalvarBackup) {
+      elBtnSalvarBackup.disabled = true;
+      elBtnSalvarBackup.textContent = 'Salvando…';
+    }
+    showBackupMsg('');
+    fetch(apiBase + '?action=saveBackup&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (elBtnSalvarBackup) {
+          elBtnSalvarBackup.disabled = false;
+          elBtnSalvarBackup.textContent = 'Salvar backup';
+        }
+        if (data && data.ok) {
+          showBackupMsg('Backup criado: ' + (data.name || '') + '. ' + (data.url ? 'Abre no Drive: ' + data.url : ''), false);
+          loadBackups();
+        } else {
+          showBackupMsg((data && data.error) || 'Erro ao criar backup.', true);
+        }
+      })
+      .catch(function () {
+        if (elBtnSalvarBackup) {
+          elBtnSalvarBackup.disabled = false;
+          elBtnSalvarBackup.textContent = 'Salvar backup';
+        }
+        showBackupMsg('Erro de conexão.', true);
+      });
+  }
+
+  function restoreBackup() {
+    var token = getToken();
+    if (!token) return logout();
+    var backupId = elSelectBackup && elSelectBackup.value ? elSelectBackup.value.trim() : '';
+    if (!backupId) {
+      showBackupMsg('Escolha um backup na lista para restaurar.', true);
+      return;
+    }
+    if (!confirm('Isso vai substituir as abas Items, Users e Orders pelos dados do backup. Os dados atuais serão perdidos. Continuar?')) {
+      return;
+    }
+    if (elBtnRestaurarBackup) {
+      elBtnRestaurarBackup.disabled = true;
+      elBtnRestaurarBackup.textContent = 'Restaurando…';
+    }
+    showBackupMsg('');
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restoreBackup', token: token, backupId: backupId })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (elBtnRestaurarBackup) {
+          elBtnRestaurarBackup.disabled = false;
+          elBtnRestaurarBackup.textContent = 'Restaurar este backup';
+        }
+        if (data && data.ok) {
+          showBackupMsg((data.message || 'Backup restaurado.') + ' Atualize a página para ver os dados.', false);
+          loadItens();
+          loadOrders();
+        } else {
+          showBackupMsg((data && data.error) || 'Erro ao restaurar.', true);
+        }
+      })
+      .catch(function () {
+        if (elBtnRestaurarBackup) {
+          elBtnRestaurarBackup.disabled = false;
+          elBtnRestaurarBackup.textContent = 'Restaurar este backup';
+        }
+        showBackupMsg('Erro de conexão.', true);
+      });
+  }
+
   function exportCsv() {
     if (currentOrders.length === 0) {
       showMsg('Nenhum pedido para exportar.', true);
@@ -413,6 +523,8 @@
   if (elBtnSair) elBtnSair.addEventListener('click', logout);
   if (elBtnSalvar) elBtnSalvar.addEventListener('click', saveItens);
   if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
+  if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
+  if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
 
   checkAuth();
 })();

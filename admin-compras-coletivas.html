@@ -120,6 +120,21 @@
       </section>
 
       <section class="admin-section">
+        <h2>Backup da planilha</h2>
+        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Crie uma cópia da planilha (Items, Users, Orders) na pasta &quot;Backups Compra Coletiva&quot; no mesmo Drive, ou restaure a partir de um backup anterior.</p>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-primary" id="adminBtnSalvarBackup">Salvar backup</button>
+          <span style="display: inline-flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap;">
+            <select id="adminSelectBackup" class="admin-input" aria-label="Escolher backup para restaurar" style="min-width: 220px; padding: 8px 12px;">
+              <option value="">— Carregar backups —</option>
+            </select>
+            <button type="button" class="btn btn-secondary" id="adminBtnRestaurarBackup">Restaurar este backup</button>
+          </span>
+        </div>
+        <p id="adminBackupMsg" class="admin-msg" style="margin-top: var(--space-sm); display: none;" role="alert"></p>
+      </section>
+
+      <section class="admin-section">
         <h2>Pedidos recentes (últimos 20)</h2>
         <p class="admin-status-legend">Fluxo: <strong>Ativo</strong> (na separação) → <strong>Separado</strong> (aba Pedidos separados) → <strong>Entregue</strong> (aba Pedidos entregues). Use os botões para avançar o status.</p>
         <div class="admin-actions">

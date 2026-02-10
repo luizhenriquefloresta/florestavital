@@ -15,10 +15,12 @@ O cliente vê o status ao consultar “Meus pedidos” (Ativo, Separado, Entregu
 
 ## Abas geradas
 
-1. **Separacao** — **uma linha por item**: quantidades **somadas** só dos pedidos **ativos**.  
-   Ex.: se 10 pedidos ativos pedem “arroz”, aparece **uma linha** com arroz e a quantidade total. Serve para a operação separar tudo de uma vez (lista de compras consolidada).
+As duas abas de separação em andamento consideram **todos os pedidos ativos de todos os usuários** (agrupamento: usuários → pedidos → itens). Nenhum filtro por usuário é aplicado.
 
-2. **Separacao por pedido** — **agrupado por pedido**: cada pedido **ativo** com seus itens e dados do cliente; linha em branco entre pedidos. Serve para montar cada pedido.
+1. **Separacao** — **uma linha por item**: quantidades **somadas** de **todos** os pedidos ativos (todos os usuários).  
+   Ex.: se 10 pedidos ativos de quaisquer clientes pedem “arroz”, aparece **uma linha** com arroz e a quantidade total. Serve para a operação separar tudo de uma vez (lista de compras consolidada).
+
+2. **Separacao por pedido** — **agrupado por pedido**: **todos** os pedidos ativos de **todos** os usuários; cada pedido com seus itens e dados do cliente (nome, telefone, etc.); linha em branco entre pedidos. Serve para montar cada pedido.
 
 3. **Pedidos separados** — mesmas colunas que “Separacao por pedido”, só com pedidos já marcados como **separado**.
 

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin — Compra Coletiva | Floresta Vital</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: var(--space-lg); padding-top: calc(80px + var(--space-lg)); }
+    .admin-login .card { max-width: 400px; margin: 0 auto; }
+    .admin-msg { margin: var(--space-md) 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); }
+    .admin-msg-ok { background: rgba(107, 142, 106, 0.15); color: var(--forest); }
+    .admin-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
+    .admin-table { width: 100%; border-collapse: collapse; margin: var(--space-md) 0; font-size: 0.9rem; }
+    .admin-table th, .admin-table td { padding: var(--space-xs) var(--space-sm); text-align: left; border-bottom: 1px solid rgba(45, 74, 62, 0.1); }
+    .admin-table th { background: var(--sand); color: var(--forest); font-weight: 600; }
+    .admin-table input[type="text"], .admin-table input[type="number"] { width: 100%; padding: 4px 8px; border: 1px solid var(--sand); border-radius: var(--radius-sm); }
+    .admin-table input[type="checkbox"] { margin: 0; }
+    .admin-section { margin-bottom: var(--space-xl); }
+    .admin-section h2 { color: var(--forest); margin-bottom: var(--space-md); font-size: 1.25rem; }
+    .admin-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-md); }
+    .admin-actions .btn { margin: 0; }
+    .admin-back { display: inline-block; margin-bottom: var(--space-md); color: var(--sage); font-size: 0.9rem; }
+    .admin-back:hover { color: var(--forest); }
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="logo">Floresta <span>Vital</span></a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Início</a></li>
+        <li><a href="compras-coletivas.html">Compra Coletiva</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="admin-wrap">
+    <a href="compras-coletivas.html" class="admin-back">← Voltar à Compra Coletiva</a>
+    <div id="adminMsg" class="admin-msg" role="alert" aria-live="polite"></div>
+
+    <div id="adminLogin" class="admin-login">
+      <div class="card">
+        <h1 style="color: var(--forest); margin-bottom: var(--space-md); font-size: 1.5rem;">Configuração — apenas admin</h1>
+        <p style="color: var(--text-soft); margin-bottom: var(--space-md); font-size: 0.95rem;">Acesso restrito ao administrador. Digite o token configurado no Google Apps Script (Propriedades do projeto → ADMIN_TOKEN).</p>
+        <div class="form-group">
+          <label for="adminToken">Token</label>
+          <input type="password" id="adminToken" class="admin-input" placeholder="Token" autocomplete="off" aria-label="Token de administrador">
+        </div>
+        <button type="button" class="btn btn-primary" id="adminBtnEntrar">Entrar</button>
+      </div>
+    </div>
+
+    <div id="adminPainel" style="display: none;">
+      <div class="admin-actions" style="justify-content: space-between;">
+        <h2 style="margin: 0;">Gestão de itens e pedidos</h2>
+        <button type="button" class="btn btn-secondary" id="adminBtnSair">Sair</button>
+      </div>
+
+      <section class="admin-section">
+        <h2>Itens do catálogo</h2>
+        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Altere ativo, estoque, nome, unidade, preço e ordem. Depois clique em &quot;Salvar alterações&quot;.</p>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-primary" id="adminBtnSalvar">Salvar alterações</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="admin-table" id="adminItensTable" aria-label="Itens do catálogo">
+            <thead>
+              <tr>
+                <th>Id</th>
+                <th>Nome</th>
+                <th>Unidade</th>
+                <th>Ativo</th>
+                <th>Estoque</th>
+                <th>Preço</th>
+                <th>Ordem</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Resumo por item (últimos 20 pedidos)</h2>
+        <div id="adminResumoItens"></div>
+      </section>
+
+      <section class="admin-section">
+        <h2>Pedidos recentes (últimos 20)</h2>
+        <div class="admin-actions">
+          <button type="button" class="btn btn-secondary" id="adminBtnExportCsv">Exportar CSV</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="admin-table" id="adminOrdersTable" aria-label="Pedidos recentes">
+            <thead>
+              <tr>
+                <th>ID Pedido</th>
+                <th>Data/Hora</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Bairro</th>
+                <th>Itens</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/admin-compras-coletivas.js"></script>
+  <script>
+    window.addEventListener('scroll', function () {
+      document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
+    });
+  </script>
+</body>
+</html>

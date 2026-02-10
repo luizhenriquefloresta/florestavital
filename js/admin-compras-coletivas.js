@@ -1,0 +1,329 @@
+/**
+ * Admin Compra Coletiva - Login por token, gestão de itens e visualização de pedidos.
+ * Token não fica no código; o usuário digita na tela de login (guardado em sessionStorage).
+ */
+(function () {
+  var STORAGE_TOKEN = 'admin_cc_token';
+  var apiBase = typeof COMPRAS_COLETIVAS_API !== 'undefined' ? COMPRAS_COLETIVAS_API : '';
+
+  var elLogin = document.getElementById('adminLogin');
+  var elPainel = document.getElementById('adminPainel');
+  var elTokenInput = document.getElementById('adminToken');
+  var elBtnEntrar = document.getElementById('adminBtnEntrar');
+  var elBtnSair = document.getElementById('adminBtnSair');
+  var elMsg = document.getElementById('adminMsg');
+  var elItensTable = document.getElementById('adminItensTable');
+  var elBtnSalvar = document.getElementById('adminBtnSalvar');
+  var elOrdersTable = document.getElementById('adminOrdersTable');
+  var elBtnExportCsv = document.getElementById('adminBtnExportCsv');
+  var elResumoItens = document.getElementById('adminResumoItens');
+
+  function getToken() {
+    return sessionStorage.getItem(STORAGE_TOKEN) || '';
+  }
+
+  function setToken(t) {
+    if (t) sessionStorage.setItem(STORAGE_TOKEN, t);
+    else sessionStorage.removeItem(STORAGE_TOKEN);
+  }
+
+  function showMsg(text, isError) {
+    if (!elMsg) return;
+    elMsg.textContent = text;
+    elMsg.className = 'admin-msg ' + (isError ? 'admin-msg-error' : 'admin-msg-ok');
+    elMsg.setAttribute('aria-live', 'polite');
+  }
+
+  function showPainel(show) {
+    if (elLogin) elLogin.style.display = show ? 'none' : 'block';
+    if (elPainel) elPainel.style.display = show ? 'block' : 'none';
+  }
+
+  function checkAuth() {
+    var token = getToken();
+    if (!token) {
+      showPainel(false);
+      return;
+    }
+    fetch(apiBase + '?action=verify&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showPainel(true);
+          loadItens();
+          loadOrders();
+        } else {
+          setToken('');
+          showPainel(false);
+          showMsg('Token inválido ou expirado.', true);
+        }
+      })
+      .catch(function () {
+        setToken('');
+        showPainel(false);
+        showMsg('Erro de conexão. Verifique a URL da API em js/config.js.', true);
+      });
+  }
+
+  function login(e) {
+    e.preventDefault();
+    var token = (elTokenInput && elTokenInput.value || '').trim();
+    if (!token) {
+      showMsg('Digite o token de administrador.', true);
+      return;
+    }
+    fetch(apiBase + '?action=verify&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          setToken(token);
+          showMsg('');
+          showPainel(true);
+          loadItens();
+          loadOrders();
+        } else {
+          showMsg('Token inválido.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  function logout() {
+    setToken('');
+    showPainel(false);
+    if (elTokenInput) elTokenInput.value = '';
+    showMsg('');
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  var currentItems = [];
+
+  function renderItens(items) {
+    currentItems = items || [];
+    if (!elItensTable) return;
+    var tbody = elItensTable.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7">Nenhum item na planilha.</td></tr>';
+      return;
+    }
+    items.forEach(function (it) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><code>' + escapeHtml(it.id) + '</code></td>' +
+        '<td><input type="text" class="admin-input admin-nome" value="' + escapeHtml(it.nome) + '" data-id="' + escapeHtml(it.id) + '" aria-label="Nome do item"></td>' +
+        '<td><input type="text" class="admin-input admin-unidade" value="' + escapeHtml(it.unidade) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Unidade"></td>' +
+        '<td><input type="checkbox" class="admin-ativo" ' + (it.ativo ? 'checked' : '') + ' data-id="' + escapeHtml(it.id) + '" aria-label="Item ativo"></td>' +
+        '<td><input type="number" min="0" class="admin-input admin-estoque" value="' + (it.estoque || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Estoque"></td>' +
+        '<td><input type="number" min="0" step="0.01" class="admin-input admin-preco" value="' + (it.preco || '') + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Preço"></td>' +
+        '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function loadItens() {
+    var token = getToken();
+    if (!token) return;
+    fetch(apiBase + '?action=adminItems&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.items) {
+          renderItens(data.items);
+        } else {
+          renderItens([]);
+          showMsg('Não foi possível carregar itens.', true);
+        }
+      })
+      .catch(function () {
+        renderItens([]);
+        showMsg('Erro ao carregar itens.', true);
+      });
+  }
+
+  function collectItemsFromForm() {
+    var rows = elItensTable && elItensTable.querySelectorAll('tbody tr');
+    if (!rows || rows.length === 0) return currentItems.map(function (it) {
+      return { id: it.id, nome: it.nome, unidade: it.unidade, ativo: it.ativo, estoque: it.estoque, preco: it.preco, ordem: it.ordem };
+    });
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var id = rows[i].querySelector('[data-id]') && rows[i].querySelector('[data-id]').getAttribute('data-id');
+      if (!id) continue;
+      var nome = (rows[i].querySelector('.admin-nome') && rows[i].querySelector('.admin-nome').value || '').trim();
+      var unidade = (rows[i].querySelector('.admin-unidade') && rows[i].querySelector('.admin-unidade').value || '').trim();
+      var ativo = rows[i].querySelector('.admin-ativo') && rows[i].querySelector('.admin-ativo').checked;
+      var estoque = parseInt(rows[i].querySelector('.admin-estoque') && rows[i].querySelector('.admin-estoque').value, 10);
+      var preco = parseFloat(rows[i].querySelector('.admin-preco') && rows[i].querySelector('.admin-preco').value);
+      var ordem = parseInt(rows[i].querySelector('.admin-ordem') && rows[i].querySelector('.admin-ordem').value, 10);
+      out.push({
+        id: id,
+        nome: nome,
+        unidade: unidade,
+        ativo: ativo,
+        estoque: isNaN(estoque) ? 0 : estoque,
+        preco: isNaN(preco) ? 0 : preco,
+        ordem: isNaN(ordem) ? 0 : ordem
+      });
+    }
+    return out;
+  }
+
+  function saveItens(e) {
+    e.preventDefault();
+    var token = getToken();
+    if (!token) return logout();
+    var items = collectItemsFromForm();
+    if (items.length === 0) {
+      showMsg('Nenhum item para salvar.', true);
+      return;
+    }
+    elBtnSalvar.disabled = true;
+    elBtnSalvar.textContent = 'Salvando…';
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'adminItems', token: token, items: items })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        elBtnSalvar.disabled = false;
+        elBtnSalvar.textContent = 'Salvar alterações';
+        if (data && data.ok) {
+          showMsg('Alterações salvas com sucesso.', false);
+          loadItens();
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar.', true);
+        }
+      })
+      .catch(function () {
+        elBtnSalvar.disabled = false;
+        elBtnSalvar.textContent = 'Salvar alterações';
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  var currentOrders = [];
+
+  function loadOrders() {
+    var token = getToken();
+    if (!token) return;
+    fetch(apiBase + '?action=orders&token=' + encodeURIComponent(token) + '&limit=20')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.orders) {
+          currentOrders = data.orders;
+          renderOrders(data.orders);
+          renderResumoItens(data.orders);
+        } else {
+          currentOrders = [];
+          renderOrders([]);
+          renderResumoItens([]);
+        }
+      })
+      .catch(function () {
+        currentOrders = [];
+        renderOrders([]);
+        renderResumoItens([]);
+      });
+  }
+
+  function renderResumoItens(orders) {
+    if (!elResumoItens) return;
+    var totals = {};
+    orders.forEach(function (o) {
+      var it;
+      try {
+        it = typeof o.itens === 'string' ? JSON.parse(o.itens) : (o.itens || {});
+      } catch (e) { it = {}; }
+      for (var k in it) if (it.hasOwnProperty(k)) {
+        totals[k] = (totals[k] || 0) + (parseInt(it[k], 10) || 0);
+      }
+    });
+    var keys = Object.keys(totals).sort();
+    if (keys.length === 0) {
+      elResumoItens.innerHTML = '<p style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item nos últimos pedidos.</p>';
+      return;
+    }
+    var html = '<table class="admin-table"><thead><tr><th>Item (id)</th><th>Total qtd.</th></tr></thead><tbody>';
+    keys.forEach(function (k) {
+      html += '<tr><td><code>' + escapeHtml(k) + '</code></td><td>' + totals[k] + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    elResumoItens.innerHTML = '<p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Resumo agregado pelos últimos 20 pedidos:</p>' + html;
+  }
+
+  function renderOrders(orders) {
+    var tbody = elOrdersTable && elOrdersTable.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!orders || orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7">Nenhum pedido recente.</td></tr>';
+      return;
+    }
+    orders.forEach(function (o) {
+      var itensStr = '';
+      try {
+        var it = typeof o.itens === 'string' ? JSON.parse(o.itens) : (o.itens || {});
+        itensStr = Object.keys(it).map(function (k) { return k + ': ' + it[k]; }).join('; ');
+      } catch (e) {
+        itensStr = o.itens || '';
+      }
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><code>' + escapeHtml(o.orderId) + '</code></td>' +
+        '<td>' + escapeHtml(o.timestamp) + '</td>' +
+        '<td>' + escapeHtml(o.nome) + '</td>' +
+        '<td>' + escapeHtml(o.email) + '</td>' +
+        '<td>' + escapeHtml(o.telefone) + '</td>' +
+        '<td>' + escapeHtml(o.bairro) + '</td>' +
+        '<td style="font-size:0.85rem;">' + escapeHtml(itensStr) + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportCsv() {
+    if (currentOrders.length === 0) {
+      showMsg('Nenhum pedido para exportar.', true);
+      return;
+    }
+    var headers = ['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens'];
+    var rows = [headers.join(',')];
+    currentOrders.forEach(function (o) {
+      var itensStr = (o.itens || '').replace(/"/g, '""');
+      rows.push([
+        '"' + (o.orderId || '').replace(/"/g, '""') + '"',
+        '"' + (o.timestamp || '').replace(/"/g, '""') + '"',
+        '"' + (o.nome || '').replace(/"/g, '""') + '"',
+        '"' + (o.email || '').replace(/"/g, '""') + '"',
+        '"' + (o.telefone || '').replace(/"/g, '""') + '"',
+        '"' + (o.bairro || '').replace(/"/g, '""') + '"',
+        '"' + (o.observacoes || '').replace(/"/g, '""') + '"',
+        '"' + itensStr + '"'
+      ].join(','));
+    });
+    var csv = rows.join('\r\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pedidos-compra-coletiva-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showMsg('CSV exportado.', false);
+  }
+
+  if (elBtnEntrar) elBtnEntrar.addEventListener('click', login);
+  if (elBtnSair) elBtnSair.addEventListener('click', logout);
+  if (elBtnSalvar) elBtnSalvar.addEventListener('click', saveItens);
+  if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
+
+  checkAuth();
+})();

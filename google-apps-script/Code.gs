@@ -7,8 +7,8 @@
 var SHEET_ITEMS = 'Items';
 var SHEET_ORDERS = 'Orders';
 var SHEET_USERS = 'Users';
-var SHEET_SEPARACAO = 'Separação';
-var SHEET_SEPARACAO_POR_PEDIDO = 'Separação por pedido';
+var SHEET_SEPARACAO = 'Separacao';
+var SHEET_SEPARACAO_POR_PEDIDO = 'Separacao por pedido';
 var PROP_ADMIN_TOKEN = 'ADMIN_TOKEN';
 
 /**
@@ -113,9 +113,15 @@ function getSpreadsheet() {
   if (id && id.toString().trim() !== '') {
     try {
       return SpreadsheetApp.openById(id.toString().trim());
-    } catch (e) {}
+    } catch (e) {
+      throw new Error('SPREADSHEET_ID invalido. Verifique o ID na URL da planilha: docs.google.com/spreadsheets/d/ID/edit');
+    }
   }
-  return SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    throw new Error('Nenhuma planilha. Rode o script pela planilha: menu Compra Coletiva > Atualizar Separacao. Ou em Propriedades do projeto adicione SPREADSHEET_ID.');
+  }
+  return ss;
 }
 
 function getSheet(name) {
@@ -475,6 +481,14 @@ function postOrder(data) {
     sheetItems.getRange(rowNum, 5).setValue(novoEstoque);
   }
 
+  try {
+    var ss = getSpreadsheet();
+    if (ss) {
+      var dados = buildDadosSeparacao(ss);
+      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    }
+  } catch (e) {}
+
   return jsonResponse({ ok: true, orderId: orderId });
 }
 
@@ -492,7 +506,7 @@ function getMyOrders(telefoneParam) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true, orders: [] });
 
-  var numCols = Math.max(8, sheet.getLastColumn());
+  var numCols = Math.max(9, sheet.getLastColumn());
   var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   var orders = [];
   for (var i = 0; i < data.length; i++) {
@@ -593,6 +607,13 @@ function postCancelOrder(data) {
   }
   restoreStockForItens(itensObj);
   statusCell.setValue('cancelado');
+  try {
+    var ss = getSpreadsheet();
+    if (ss) {
+      var dados = buildDadosSeparacao(ss);
+      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    }
+  } catch (e) {}
   return jsonResponse({ ok: true, message: 'Pedido cancelado' });
 }
 
@@ -681,6 +702,13 @@ function postUpdateOrder(data) {
     sheetItems.getRange(r, 5).setValue(novoEstoque);
   }
 
+  try {
+    var ss = getSpreadsheet();
+    if (ss) {
+      var dados = buildDadosSeparacao(ss);
+      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    }
+  } catch (e) {}
   return jsonResponse({ ok: true, message: 'Pedido atualizado' });
 }
 
@@ -748,30 +776,22 @@ function runSetupPlanilha() {
 }
 
 /**
- * Cria ou atualiza as abas "Separação" (visão geral) e "Separação por pedido".
- * Cada linha = um item de um pedido: orderId, nome, telefone, item, quantidade, valor unit., total.
- * Execute esta função quando quiser atualizar a lista após novos pedidos (pode colocar no menu da planilha).
+ * Lê Orders + Items e retorna { linhasPorItem: [], linhas: [] } para as abas Separacao e Separacao por pedido.
+ * Usado por runAtualizarSeparacao e por postOrder (atualização automática ao criar pedido).
  */
-function runAtualizarSeparacao() {
-  var ss = getSpreadsheet();
-  if (!ss) throw new Error('Nenhuma planilha ativa. Abra a planilha ou configure SPREADSHEET_ID nas propriedades do script.');
-
+function buildDadosSeparacao(ss) {
+  if (!ss) return null;
   var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
   var sheetItems = ss.getSheetByName(SHEET_ITEMS);
-  if (!sheetOrders || !sheetItems) {
-    throw new Error('Abas Orders e Items são obrigatórias.');
-  }
-
+  if (!sheetOrders || !sheetItems) return null;
   var lastOrder = sheetOrders.getLastRow();
   var lastItem = sheetItems.getLastRow();
-  if (lastOrder < 2) {
-    criarOuLimparSeparacao(ss, []);
-    return 'Separação atualizada. Nenhum pedido na planilha.';
-  }
+  if (lastOrder < 2) return { linhasPorItem: [], linhas: [] };
 
   var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
   var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
-  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, 8).getValues() : [];
+  var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
+  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
   var idToNome = {};
   var idToUnidade = {};
   var idToPreco = {};
@@ -783,6 +803,7 @@ function runAtualizarSeparacao() {
   }
 
   var linhas = [];
+  var agregadoPorItem = {};
   for (var o = 0; o < orderData.length; o++) {
     var row = orderData[o];
     var status = (row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '') ? String(row[8]).trim().toLowerCase() : 'ativo';
@@ -821,49 +842,123 @@ function runAtualizarSeparacao() {
         precoUn,
         totalLinha
       ]);
+      if (!agregadoPorItem[itemId]) {
+        agregadoPorItem[itemId] = { qty: 0, nome: idToNome[itemId] != null ? idToNome[itemId] : itemId, unidade: idToUnidade[itemId] != null ? idToUnidade[itemId] : '', preco: precoUn };
+      }
+      agregadoPorItem[itemId].qty += qty;
     }
   }
 
-  criarOuLimparSeparacao(ss, linhas);
-  return 'Separação atualizada. ' + linhas.length + ' linha(s) de itens (pedidos ativos).';
+  var linhasPorItem = [];
+  for (var itemId in agregadoPorItem) {
+    if (!agregadoPorItem.hasOwnProperty(itemId)) continue;
+    var a = agregadoPorItem[itemId];
+    linhasPorItem.push([itemId, a.nome, a.unidade, a.qty, a.preco, a.qty * a.preco]);
+  }
+  return { linhasPorItem: linhasPorItem, linhas: linhas };
 }
 
 /**
- * Cabeçalhos das abas de separação.
+ * Cria ou atualiza as abas Separacao (por item) e Separacao por pedido.
+ * Execute pelo menu da planilha ou chame após criar/cancelar/editar pedido.
  */
-var SEPARACAO_HEADERS = [
+function runAtualizarSeparacao() {
+  try {
+    var ss = getSpreadsheet();
+    if (!ss) {
+      throw new Error('Nenhuma planilha ativa. Se o script não está vinculado à planilha, vá em Executar > Propriedades do projeto e adicione SPREADSHEET_ID com o ID da planilha (está na URL: docs.google.com/spreadsheets/d/ESTE_ID/edit).');
+    }
+
+    var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
+    var sheetItems = ss.getSheetByName(SHEET_ITEMS);
+    if (!sheetOrders || !sheetItems) {
+      throw new Error('Abas "Orders" e "Items" são obrigatórias. Verifique se elas existem na planilha.');
+    }
+
+    var lastOrder = sheetOrders.getLastRow();
+    if (lastOrder < 2) {
+      criarOuLimparSeparacao(ss, [], []);
+      return 'Separação atualizada. Nenhum pedido na planilha.';
+    }
+
+    var dados = buildDadosSeparacao(ss);
+    if (!dados) {
+      criarOuLimparSeparacao(ss, [], []);
+      return 'Separação atualizada.';
+    }
+    criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    return 'Separação atualizada. ' + dados.linhasPorItem.length + ' item(ns) na lista geral; ' + dados.linhas.length + ' linha(s) na separação por pedido.';
+  } catch (e) {
+    var msg = e.message || String(e);
+    throw new Error('Atualizar Separação: ' + msg);
+  }
+}
+
+var SEPARACAO_HEADERS_porItem = ['item_id', 'item_nome', 'unidade', 'quantidade_total', 'valor_unit', 'total'];
+var SEPARACAO_HEADERS_porPedido = [
   'orderId', 'nome', 'telefone', 'email', 'bairro', 'observacoes',
   'item_id', 'item_nome', 'unidade', 'quantidade', 'valor_unit', 'total'
 ];
 
-function criarOuLimparSeparacao(ss, linhas) {
+function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido) {
+  linhasPorItem = linhasPorItem || [];
+  linhasPorPedido = linhasPorPedido || [];
+
   var sheetGeral = ss.getSheetByName(SHEET_SEPARACAO);
   if (!sheetGeral) sheetGeral = ss.insertSheet(SHEET_SEPARACAO);
   sheetGeral.clear();
-  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setValues([SEPARACAO_HEADERS]);
-  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setFontWeight('bold');
-  if (linhas.length > 0) {
-    sheetGeral.getRange(2, 1, linhas.length + 1, SEPARACAO_HEADERS.length).setValues(linhas);
+  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
+  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
+  if (linhasPorItem.length > 0) {
+    sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
   }
 
   var sheetPorPedido = ss.getSheetByName(SHEET_SEPARACAO_POR_PEDIDO);
   if (!sheetPorPedido) sheetPorPedido = ss.insertSheet(SHEET_SEPARACAO_POR_PEDIDO);
   sheetPorPedido.clear();
-  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setValues([SEPARACAO_HEADERS]);
-  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setFontWeight('bold');
-  if (linhas.length > 0) {
+  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
+  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setFontWeight('bold');
+  if (linhasPorPedido.length > 0) {
     var rowsPorPedido = [];
     var lastOrderId = null;
-    for (var i = 0; i < linhas.length; i++) {
-      var orderId = linhas[i][0];
+    for (var i = 0; i < linhasPorPedido.length; i++) {
+      var orderId = linhasPorPedido[i][0];
       if (lastOrderId !== null && orderId !== lastOrderId) {
         rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
       }
       lastOrderId = orderId;
-      rowsPorPedido.push(linhas[i]);
+      rowsPorPedido.push(linhasPorPedido[i]);
     }
-    sheetPorPedido.getRange(2, 1, rowsPorPedido.length + 1, SEPARACAO_HEADERS.length).setValues(rowsPorPedido);
+    if (rowsPorPedido.length > 0) {
+      sheetPorPedido.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
+    }
   }
+}
+
+/**
+ * Teste 0 - so escreve no log. Rode e veja em Execucoes > esta execucao > Log.
+ * Se aparecer "Script rodou OK" no log, o problema e ao acessar a planilha (autorizacao ou script standalone).
+ */
+function runTesteSoLog() {
+  Logger.log('Script rodou OK - sem acessar planilha');
+  return 'Veja o log (Execucoes > clique na execucao > Log). Deve aparecer: Script rodou OK';
+}
+
+/**
+ * Teste 1 - pega a planilha ativa. Rode runTesteSoLog primeiro; se der certo, rode este.
+ * Na PRIMEIRA vez que acessar a planilha o Google abre uma janela pedindo autorizacao:
+ * clique em "Revisar permissoes" > escolha sua conta > "Avançado" > "Ir para ... (nao seguro)" > Permitir.
+ * Se a janela nao aparecer, desbloqueie pop-ups para script.google.com
+ */
+function runTestarConexao() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    return 'ERRO: Nenhuma planilha ativa. Crie o script pela planilha: Arquivo da planilha > Extensoes > Apps Script (nao um projeto novo em script.google.com). Ou em Propriedades do projeto adicione SPREADSHEET_ID.';
+  }
+  var nome = ss.getName();
+  var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
+  var sheetItems = ss.getSheetByName(SHEET_ITEMS);
+  return 'OK: planilha "' + nome + '". Orders=' + (sheetOrders ? 'sim' : 'nao') + ', Items=' + (sheetItems ? 'sim' : 'nao');
 }
 
 /**
@@ -871,10 +966,14 @@ function criarOuLimparSeparacao(ss, linhas) {
  * Ativar: defina o gatilho onOpen no projeto ou execute runAtualizarSeparacao manualmente.
  */
 function onOpen() {
-  var ui = SpreadsheetApp.getUi();
-  if (ui) {
-    ui.createMenu('Compra Coletiva')
-      .addItem('Atualizar Separação (pedidos em linhas)', 'runAtualizarSeparacao')
-      .addToUi();
+  try {
+    var ui = SpreadsheetApp.getUi();
+    if (ui) {
+      ui.createMenu('Compra Coletiva')
+        .addItem('Atualizar Separação (pedidos em linhas)', 'runAtualizarSeparacao')
+        .addToUi();
+    }
+  } catch (e) {
+    Logger.log('onOpen: ' + (e.message || e));
   }
 }

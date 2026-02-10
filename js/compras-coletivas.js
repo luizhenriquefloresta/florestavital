@@ -607,6 +607,7 @@
             formOrder.reset();
             fillOrderFromUser();
             if (inpList) for (var k = 0; k < inpList.length; k++) inpList[k].value = 0;
+            loadMeusPedidos();
           } else {
             showMsg(msgCompra, (data && data.error) || 'Erro ao enviar. Tente de novo.', true);
           }

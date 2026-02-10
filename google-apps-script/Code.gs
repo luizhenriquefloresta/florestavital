@@ -112,12 +112,16 @@ function getSpreadsheet() {
   var id = props.getProperty('SPREADSHEET_ID');
   if (id && id.toString().trim() !== '') {
     try {
-      return SpreadsheetApp.openById(id.toString().trim());
+      var ss = SpreadsheetApp.openById(id.toString().trim());
+      Logger.log('[Separacao] getSpreadsheet: usou SPREADSHEET_ID, nome=' + (ss ? ss.getName() : 'null'));
+      return ss;
     } catch (e) {
+      Logger.log('[Separacao] getSpreadsheet: SPREADSHEET_ID falhou - ' + (e.message || e));
       throw new Error('SPREADSHEET_ID invalido. Verifique o ID na URL da planilha: docs.google.com/spreadsheets/d/ID/edit');
     }
   }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log('[Separacao] getSpreadsheet: usou getActiveSpreadsheet, ss=' + (ss ? ss.getName() : 'null'));
   if (!ss) {
     throw new Error('Nenhuma planilha. Rode o script pela planilha: menu Compra Coletiva > Atualizar Separacao. Ou em Propriedades do projeto adicione SPREADSHEET_ID.');
   }
@@ -137,6 +141,15 @@ function normalizePhone(t) {
   return (t || '').toString().replace(/\D/g, '');
 }
 
+/** Retorna true se dois telefones normalizados são o mesmo (ex.: 11999999999 e 5511999999999). */
+function phonesMatch(t1, t2) {
+  if (!t1 || !t2) return false;
+  if (t1 === t2) return true;
+  var a = t1.length >= t2.length ? t1 : t2;
+  var b = t1.length >= t2.length ? t2 : t1;
+  return a.slice(-b.length) === b;
+}
+
 /**
  * GET ?action=user&telefone=XXX
  * Retorna { ok, exists, user?: { telefone, nome, endereco, documento } }
@@ -154,7 +167,7 @@ function getUserByPhone(telefoneParam) {
   var numCols = 5;
   var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   for (var i = 0; i < data.length; i++) {
-    if (normalizePhone(data[i][0]) === telefone) {
+    if (phonesMatch(normalizePhone(data[i][0]), telefone)) {
       return jsonResponse({
         ok: true,
         exists: true,
@@ -198,7 +211,7 @@ function postRegister(data) {
   var lastRow = sheet.getLastRow();
   var dataRows = lastRow >= 2 ? sheet.getRange(2, 1, lastRow, 1).getValues() : [];
   for (var i = 0; i < dataRows.length; i++) {
-    if (normalizePhone(dataRows[i][0]) === telefone) {
+    if (phonesMatch(normalizePhone(dataRows[i][0]), telefone)) {
       sheet.getRange(i + 2, 2).setValue(nome);
       sheet.getRange(i + 2, 3).setValue(endereco);
       sheet.getRange(i + 2, 4).setValue(documento);
@@ -228,7 +241,7 @@ function postSendCode(data) {
     if (sheet && sheet.getLastRow() >= 2) {
       var rows = sheet.getRange(2, 1, sheet.getLastRow(), 5).getValues();
       for (var i = 0; i < rows.length; i++) {
-        if (normalizePhone(rows[i][0]) === telefone) {
+        if (phonesMatch(normalizePhone(rows[i][0]), telefone)) {
           email = String(rows[i][4] || '').trim();
           break;
         }
@@ -483,11 +496,15 @@ function postOrder(data) {
 
   try {
     var ss = getSpreadsheet();
+    Logger.log('[Separacao] postOrder: apos salvar pedido, ss=' + !!ss);
     if (ss) {
       var dados = buildDadosSeparacao(ss);
+      Logger.log('[Separacao] postOrder: buildDadosSeparacao retornou dados=' + !!dados + (dados ? ' linhasPorItem=' + (dados.linhasPorItem ? dados.linhasPorItem.length : 0) + ' linhas=' + (dados.linhas ? dados.linhas.length : 0) : ''));
       if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
     }
-  } catch (e) {}
+  } catch (e) {
+    Logger.log('[Separacao] postOrder: erro ao atualizar abas - ' + (e.message || e));
+  }
 
   return jsonResponse({ ok: true, orderId: orderId });
 }
@@ -512,7 +529,7 @@ function getMyOrders(telefoneParam) {
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
     var rowTel = normalizePhone(String(row[4] || ''));
-    if (rowTel !== telefone) continue;
+    if (!phonesMatch(rowTel, telefone)) continue;
     var status = row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '' ? String(row[8]).trim().toLowerCase() : 'ativo';
     orders.push({
       orderId: String(row[0] || ''),
@@ -590,7 +607,7 @@ function postCancelOrder(data) {
     return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
   }
   var rowTel = normalizePhone(String(sheetOrders.getRange(rowNum, 5).getValue() || ''));
-  if (rowTel !== telefone) {
+  if (!phonesMatch(rowTel, telefone)) {
     return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
   }
   var statusCell = sheetOrders.getRange(rowNum, 9);
@@ -646,7 +663,7 @@ function postUpdateOrder(data) {
     return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
   }
   var rowTel = normalizePhone(String(sheetOrders.getRange(rowNum, 5).getValue() || ''));
-  if (rowTel !== telefone) {
+  if (!phonesMatch(rowTel, telefone)) {
     return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
   }
   var statusCell = sheetOrders.getRange(rowNum, 9);
@@ -780,18 +797,42 @@ function runSetupPlanilha() {
  * Usado por runAtualizarSeparacao e por postOrder (atualização automática ao criar pedido).
  */
 function buildDadosSeparacao(ss) {
-  if (!ss) return null;
+  var ssResolvidoAqui = false;
+  Logger.log('[Separacao] buildDadosSeparacao: inicio, ss=' + !!ss);
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    Logger.log('[Separacao] buildDadosSeparacao: ss invalido, tentando getSpreadsheet()');
+    try {
+      ss = getSpreadsheet();
+      ssResolvidoAqui = true;
+    } catch (e) {
+      Logger.log('[Separacao] buildDadosSeparacao: getSpreadsheet falhou - ' + (e.message || e));
+      return null;
+    }
+  }
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    Logger.log('[Separacao] buildDadosSeparacao: ss ainda invalido, retorna null');
+    return null;
+  }
+  Logger.log('[Separacao] buildDadosSeparacao: ss OK nome=' + ss.getName());
   var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
   var sheetItems = ss.getSheetByName(SHEET_ITEMS);
-  if (!sheetOrders || !sheetItems) return null;
+  if (!sheetOrders || !sheetItems) {
+    Logger.log('[Separacao] buildDadosSeparacao: Orders=' + !!sheetOrders + ' Items=' + !!sheetItems + ', retorna null');
+    return null;
+  }
   var lastOrder = sheetOrders.getLastRow();
   var lastItem = sheetItems.getLastRow();
-  if (lastOrder < 2) return { linhasPorItem: [], linhas: [] };
+  Logger.log('[Separacao] buildDadosSeparacao: lastOrder=' + lastOrder + ' lastItem=' + lastItem);
+  if (lastOrder < 2) {
+    Logger.log('[Separacao] buildDadosSeparacao: sem pedidos, retorna []');
+    return { linhasPorItem: [], linhas: [] };
+  }
 
   var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
   var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
   var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
   var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
+  Logger.log('[Separacao] buildDadosSeparacao: orderData.rows=' + orderData.length + ' itemData.rows=' + itemData.length);
   var idToNome = {};
   var idToUnidade = {};
   var idToPreco = {};
@@ -855,6 +896,11 @@ function buildDadosSeparacao(ss) {
     var a = agregadoPorItem[itemId];
     linhasPorItem.push([itemId, a.nome, a.unidade, a.qty, a.preco, a.qty * a.preco]);
   }
+  Logger.log('[Separacao] buildDadosSeparacao: retorna linhasPorItem=' + linhasPorItem.length + ' linhas=' + linhas.length);
+  if (ssResolvidoAqui) {
+    Logger.log('[Separacao] buildDadosSeparacao: chamando criarOuLimparSeparacao (foi executado sem runAtualizarSeparacao)');
+    criarOuLimparSeparacao(ss, linhasPorItem, linhas);
+  }
   return { linhasPorItem: linhasPorItem, linhas: linhas };
 }
 
@@ -863,32 +909,42 @@ function buildDadosSeparacao(ss) {
  * Execute pelo menu da planilha ou chame após criar/cancelar/editar pedido.
  */
 function runAtualizarSeparacao() {
+  Logger.log('[Separacao] runAtualizarSeparacao: INICIO');
   try {
     var ss = getSpreadsheet();
+    Logger.log('[Separacao] runAtualizarSeparacao: getSpreadsheet retornou ss=' + !!ss + (ss ? ' nome=' + ss.getName() : ''));
     if (!ss) {
       throw new Error('Nenhuma planilha ativa. Se o script não está vinculado à planilha, vá em Executar > Propriedades do projeto e adicione SPREADSHEET_ID com o ID da planilha (está na URL: docs.google.com/spreadsheets/d/ESTE_ID/edit).');
     }
 
     var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
     var sheetItems = ss.getSheetByName(SHEET_ITEMS);
+    Logger.log('[Separacao] runAtualizarSeparacao: sheetOrders=' + !!sheetOrders + ' sheetItems=' + !!sheetItems);
     if (!sheetOrders || !sheetItems) {
       throw new Error('Abas "Orders" e "Items" são obrigatórias. Verifique se elas existem na planilha.');
     }
 
     var lastOrder = sheetOrders.getLastRow();
+    Logger.log('[Separacao] runAtualizarSeparacao: lastOrder=' + lastOrder);
     if (lastOrder < 2) {
+      Logger.log('[Separacao] runAtualizarSeparacao: sem pedidos, chama criarOuLimparSeparacao vazio');
       criarOuLimparSeparacao(ss, [], []);
       return 'Separação atualizada. Nenhum pedido na planilha.';
     }
 
     var dados = buildDadosSeparacao(ss);
+    Logger.log('[Separacao] runAtualizarSeparacao: dados=' + !!dados + (dados ? ' linhasPorItem=' + dados.linhasPorItem.length + ' linhas=' + dados.linhas.length : ''));
     if (!dados) {
+      Logger.log('[Separacao] runAtualizarSeparacao: dados null, chama criarOuLimparSeparacao vazio');
       criarOuLimparSeparacao(ss, [], []);
       return 'Separação atualizada.';
     }
+    Logger.log('[Separacao] runAtualizarSeparacao: chamando criarOuLimparSeparacao');
     criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    Logger.log('[Separacao] runAtualizarSeparacao: FIM OK');
     return 'Separação atualizada. ' + dados.linhasPorItem.length + ' item(ns) na lista geral; ' + dados.linhas.length + ' linha(s) na separação por pedido.';
   } catch (e) {
+    Logger.log('[Separacao] runAtualizarSeparacao: ERRO - ' + (e.message || e));
     var msg = e.message || String(e);
     throw new Error('Atualizar Separação: ' + msg);
   }
@@ -901,37 +957,59 @@ var SEPARACAO_HEADERS_porPedido = [
 ];
 
 function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido) {
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    Logger.log('[Separacao] criarOuLimparSeparacao: ss invalido, tentando getSpreadsheet()');
+    try {
+      ss = getSpreadsheet();
+    } catch (e) {
+      Logger.log('[Separacao] criarOuLimparSeparacao: getSpreadsheet falhou - ' + (e.message || e));
+      return;
+    }
+  }
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    Logger.log('[Separacao] criarOuLimparSeparacao: ABORTADO (ss ainda invalido)');
+    return;
+  }
+  Logger.log('[Separacao] criarOuLimparSeparacao: ss OK nome=' + ss.getName());
   linhasPorItem = linhasPorItem || [];
   linhasPorPedido = linhasPorPedido || [];
+  Logger.log('[Separacao] criarOuLimparSeparacao: linhasPorItem=' + linhasPorItem.length + ' linhasPorPedido=' + linhasPorPedido.length);
 
-  var sheetGeral = ss.getSheetByName(SHEET_SEPARACAO);
-  if (!sheetGeral) sheetGeral = ss.insertSheet(SHEET_SEPARACAO);
-  sheetGeral.clear();
-  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
-  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
-  if (linhasPorItem.length > 0) {
-    sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
-  }
+  try {
+    var sheetGeral = ss.getSheetByName(SHEET_SEPARACAO);
+    if (!sheetGeral) sheetGeral = ss.insertSheet(SHEET_SEPARACAO);
+    sheetGeral.clear();
+    sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
+    sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
+    if (linhasPorItem.length > 0) {
+      sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
+    }
+    Logger.log('[Separacao] criarOuLimparSeparacao: aba Separacao OK');
 
-  var sheetPorPedido = ss.getSheetByName(SHEET_SEPARACAO_POR_PEDIDO);
-  if (!sheetPorPedido) sheetPorPedido = ss.insertSheet(SHEET_SEPARACAO_POR_PEDIDO);
-  sheetPorPedido.clear();
-  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
-  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setFontWeight('bold');
-  if (linhasPorPedido.length > 0) {
-    var rowsPorPedido = [];
-    var lastOrderId = null;
-    for (var i = 0; i < linhasPorPedido.length; i++) {
-      var orderId = linhasPorPedido[i][0];
-      if (lastOrderId !== null && orderId !== lastOrderId) {
-        rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
+    var sheetPorPedido = ss.getSheetByName(SHEET_SEPARACAO_POR_PEDIDO);
+    if (!sheetPorPedido) sheetPorPedido = ss.insertSheet(SHEET_SEPARACAO_POR_PEDIDO);
+    sheetPorPedido.clear();
+    sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
+    sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setFontWeight('bold');
+    if (linhasPorPedido.length > 0) {
+      var rowsPorPedido = [];
+      var lastOrderId = null;
+      for (var i = 0; i < linhasPorPedido.length; i++) {
+        var orderId = linhasPorPedido[i][0];
+        if (lastOrderId !== null && orderId !== lastOrderId) {
+          rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
+        }
+        lastOrderId = orderId;
+        rowsPorPedido.push(linhasPorPedido[i]);
       }
-      lastOrderId = orderId;
-      rowsPorPedido.push(linhasPorPedido[i]);
+      if (rowsPorPedido.length > 0) {
+        sheetPorPedido.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
+      }
     }
-    if (rowsPorPedido.length > 0) {
-      sheetPorPedido.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
-    }
+    Logger.log('[Separacao] criarOuLimparSeparacao: abas escritas com sucesso');
+  } catch (err) {
+    Logger.log('[Separacao] criarOuLimparSeparacao: ERRO ao escrever - ' + (err.message || err));
+    throw err;
   }
 }
 

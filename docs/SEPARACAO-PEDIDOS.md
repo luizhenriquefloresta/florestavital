@@ -55,12 +55,15 @@ As abas **não** são atualizadas sozinhas. É preciso rodar a função que rege
 
 2. **Pelo Apps Script**  
    - Extensões → Apps Script.  
-   - Selecione a função **runAtualizarSeparacao** no dropdown e clique em **Executar**.  
+   - Selecione a função **runAtualizarSeparacao** no dropdown e clique em **Executar** (não use **buildDadosSeparacao** — essa é função interna).  
+   - Se rodar pelo editor **sem** abrir a planilha, configure **SPREADSHEET_ID** em Executar → Propriedades do projeto (ID da planilha está na URL: `docs.google.com/spreadsheets/d/ESTE_ID/edit`).  
    - Na primeira vez, autorize o acesso à planilha se o Google pedir.
 
 Se o menu **Compra Coletiva** não aparecer, recarregue a planilha (F5) ou execute uma vez a função **onOpen** no editor do Apps Script (ela registra o menu).
 
 **Teste de conexão:** no editor do Apps Script, execute a função **runTestarConexao**. Se retornar "OK: planilha encontrada", o script está achando a planilha; se der erro, a mensagem indica o que falta (por exemplo, configurar SPREADSHEET_ID).
+
+**Logs para diagnosticar:** o script grava logs com o prefixo `[Separacao]`. Depois de rodar **runAtualizarSeparacao** (ou de fazer um pedido pelo site), abra no Apps Script: **Execuções** (ícone de relógio) → clique na execução desejada → **Log**. Você verá em que etapa parou (getSpreadsheet, buildDadosSeparacao, criarOuLimparSeparacao) e quantas linhas foram lidas/escritas.
 
 ## Observações
 

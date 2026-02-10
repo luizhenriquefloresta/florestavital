@@ -7,15 +7,26 @@
 
 ## Configuração (uma vez)
 
-1. Abra: https://github.com/luizhenriquefloresta/florestavital/settings/pages
-2. Em **Build and deployment** → **Source**, selecione **Deploy from a branch**
-3. Em **Branch**: escolha **main**
-4. Em **Folder**: escolha **/ (root)**
-5. Clique em **Save**
+O repositório inclui um **workflow de GitHub Actions** (`.github/workflows/deploy-pages.yml`) que publica o site a cada push na branch `main`. Para ativar:
 
-Pronto! O site será publicado automaticamente a cada push na branch `main`.
+1. Abra **Settings** do repositório no GitHub → **Pages** (menu esquerdo, em "Code and automation").
+2. Em **Build and deployment** → **Source**, selecione **GitHub Actions**.
+3. Pronto. Nos próximos pushes na branch `main`, o workflow será executado e o site será publicado.
 
-**URL do site:** https://luizhenriquefloresta.github.io/florestavital/
+**URL do site** (troque `USUARIO` e `REPO` pelo dono do repositório e nome do repo):
+- Ex.: https://luizhenriquefloresta.github.io/florestavital/
+- Ou: https://sraphaz.github.io/florestavital/ (se for o seu fork)
+
+---
+
+## Alternativa: publicar direto de uma branch (sem Actions)
+
+Se preferir não usar o workflow:
+
+1. Em **Settings** → **Pages** → **Source**, selecione **Deploy from a branch**.
+2. **Branch:** `main` (ou `master`).
+3. **Folder:** `/ (root)`.
+4. **Save**.
 
 ---
 

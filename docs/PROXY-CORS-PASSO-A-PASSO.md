@@ -25,12 +25,12 @@ O site em **sraphaz.github.io** não consegue chamar o Apps Script direto por ca
 
 ## 3. Configurar a URL do Apps Script no Worker
 
-1. Na página do Worker, vá em **Settings** → **Variables**.
+1. Na página do Worker, vá em **Settings** → **Variables** (ou **Variables and Secrets**).
 2. Em **Environment Variables**, clique em **Add variable** (ou **Edit variables**).
-3. **Variable name:** `SCRIPT_URL`  
+3. **Variable name:** `SCRIPT_URL` (exatamente assim).  
    **Value:** cole a URL do seu Web App (a que termina em `/exec`), por exemplo:  
    `https://script.google.com/macros/s/AKfycbwU0QIVt5nENIUAQffpFB9VKVbuB4QPosEwl_6jXCU8DHwRbtLdxD0EgSkjXI0BAtu75g/exec`
-4. Salve e clique de novo em **Save and deploy** (no código).
+4. **Importante:** depois de salvar a variável, volte em **Code** e clique de novo em **Save and deploy**. Sem um novo deploy, a variável não vale para as próximas requisições.
 
 ---
 
@@ -65,3 +65,11 @@ var COMPRAS_COLETIVAS_API = 'https://florestavital-cors.SEU-USUARIO.workers.dev'
 | **js/config.js** → `COMPRAS_COLETIVAS_API` | URL do Worker (https://....workers.dev) |
 
 O navegador chama o Worker → o Worker chama o Apps Script → a resposta volta com CORS e o site funciona.
+
+---
+
+## Se ainda der erro de CORS
+
+- Confirme que a variável **SCRIPT_URL** está definida no Worker (Settings → Variables) e que você fez **Save and deploy** depois de salvar a variável.
+- Em **js/config.js**, use só a URL do Worker, **sem path** (ex.: `https://cors-florestavital.rapha-sos.workers.dev`); o site já adiciona `?action=...` nas chamadas.
+- Se o Worker foi alterado (código ou variáveis), faça um novo **Save and deploy** no Cloudflare.

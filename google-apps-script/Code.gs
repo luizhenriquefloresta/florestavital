@@ -7,6 +7,8 @@
 var SHEET_ITEMS = 'Items';
 var SHEET_ORDERS = 'Orders';
 var SHEET_USERS = 'Users';
+var SHEET_SEPARACAO = 'Separação';
+var SHEET_SEPARACAO_POR_PEDIDO = 'Separação por pedido';
 var PROP_ADMIN_TOKEN = 'ADMIN_TOKEN';
 
 /**
@@ -45,6 +47,10 @@ function doGet(e) {
       return jsonResponse({ ok: true });
     }
     return jsonResponse({ ok: false, error: 'Invalid token' }, 401);
+  }
+  if (action === 'myOrders') {
+    var tel = (params.telefone || '').toString().trim();
+    return getMyOrders(tel);
   }
 
   return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
@@ -85,6 +91,12 @@ function doPost(e) {
     }
     return postItemsAdmin(data.items);
   }
+  if (data.action === 'cancelOrder') {
+    return postCancelOrder(data);
+  }
+  if (data.action === 'updateOrder') {
+    return postUpdateOrder(data);
+  }
 
   return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
 }
@@ -95,8 +107,20 @@ function isAdminTokenValid(token) {
   return stored && stored.toString().trim() === token.toString().trim();
 }
 
+function getSpreadsheet() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('SPREADSHEET_ID');
+  if (id && id.toString().trim() !== '') {
+    try {
+      return SpreadsheetApp.openById(id.toString().trim());
+    } catch (e) {}
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function getSheet(name) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSpreadsheet();
+  if (!ss) return null;
   var sheet = ss.getSheetByName(name);
   if (!sheet) return null;
   return sheet;
@@ -251,8 +275,8 @@ function getItemsPublic() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true, items: [] });
 
-  var data = sheet.getRange(2, 1, lastRow, 7).getValues();
-  var cols = ['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem'];
+  var numCols = Math.max(7, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   var items = [];
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
@@ -265,7 +289,8 @@ function getItemsPublic() {
         ativo: true,
         estoque: parseInt(row[4], 10) || 0,
         preco: parseFloat(row[5]) || 0,
-        ordem: parseInt(row[6], 10) || 0
+        ordem: parseInt(row[6], 10) || 0,
+        imagem: row[7] !== undefined && row[7] !== null ? String(row[7] || '').trim() : ''
       });
     }
   }
@@ -285,7 +310,8 @@ function getItemsAdmin() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true, items: [] });
 
-  var data = sheet.getRange(2, 1, lastRow, 7).getValues();
+  var numCols = Math.max(7, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   var items = [];
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
@@ -297,7 +323,8 @@ function getItemsAdmin() {
       ativo: ativo === true || ativo === 'TRUE' || ativo === 'true' || ativo === '1' || ativo === 1,
       estoque: parseInt(row[4], 10) || 0,
       preco: parseFloat(row[5]) || 0,
-      ordem: parseInt(row[6], 10) || 0
+      ordem: parseInt(row[6], 10) || 0,
+      imagem: row[7] !== undefined && row[7] !== null ? String(row[7] || '').trim() : ''
     });
   }
   items.sort(function (a, b) {
@@ -308,7 +335,7 @@ function getItemsAdmin() {
 }
 
 /**
- * Atualiza itens na planilha (estoque, ativo, e opcionalmente nome/unidade/preco/ordem).
+ * Atualiza itens na planilha (estoque, ativo, imagem, e opcionalmente nome/unidade/preco/ordem).
  * items: array de { id, nome?, unidade?, ativo?, estoque?, preco?, ordem? }
  */
 function postItemsAdmin(items) {
@@ -321,7 +348,8 @@ function postItemsAdmin(items) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true });
 
-  var data = sheet.getRange(2, 1, lastRow, 7).getValues();
+  var numCols = Math.max(7, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   var idToRowIndex = {};
   for (var i = 0; i < data.length; i++) {
     idToRowIndex[String(data[i][0] || '').trim()] = i + 2;
@@ -337,6 +365,7 @@ function postItemsAdmin(items) {
     if (it.hasOwnProperty('nome')) sheet.getRange(rowNum, 2).setValue(it.nome);
     if (it.hasOwnProperty('unidade')) sheet.getRange(rowNum, 3).setValue(it.unidade);
     if (it.hasOwnProperty('ativo')) sheet.getRange(rowNum, 4).setValue(it.ativo ? 'TRUE' : 'FALSE');
+    if (it.hasOwnProperty('imagem')) sheet.getRange(rowNum, 8).setValue(it.imagem != null ? String(it.imagem).trim() : '');
     if (it.hasOwnProperty('estoque')) sheet.getRange(rowNum, 5).setValue(Number(it.estoque) || 0);
     if (it.hasOwnProperty('preco')) sheet.getRange(rowNum, 6).setValue(Number(it.preco) || 0);
     if (it.hasOwnProperty('ordem')) sheet.getRange(rowNum, 7).setValue(Number(it.ordem) || 0);
@@ -355,8 +384,10 @@ function getOrdersAdmin(limitStr) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true, orders: [] });
 
+  var numCols = Math.max(8, sheet.getLastColumn());
+  if (numCols < 8) numCols = 8;
   var startRow = Math.max(2, lastRow - limit + 1);
-  var data = sheet.getRange(startRow, 1, lastRow, 8).getValues();
+  var data = sheet.getRange(startRow, 1, lastRow, numCols).getValues();
   var orders = [];
   for (var i = data.length - 1; i >= 0; i--) {
     var row = data[i];
@@ -368,7 +399,8 @@ function getOrdersAdmin(limitStr) {
       telefone: String(row[4] || ''),
       bairro: String(row[5] || ''),
       observacoes: String(row[6] || ''),
-      itens: String(row[7] || '{}')
+      itens: String(row[7] || '{}'),
+      status: row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '' ? String(row[8]).trim().toLowerCase() : 'ativo'
     });
   }
   return jsonResponse({ ok: true, orders: orders });
@@ -432,7 +464,7 @@ function postOrder(data) {
   var bairro = (data.bairro || '').toString().trim();
   var observacoes = (data.observacoes || '').toString().trim();
 
-  sheetOrders.appendRow([orderId, timestamp, nome, email || '', telefone, bairro, observacoes, JSON.stringify(itens)]);
+  sheetOrders.appendRow([orderId, timestamp, nome, email || '', telefone, bairro, observacoes, JSON.stringify(itens), 'ativo']);
 
   for (var id2 in itens) {
     if (!itens.hasOwnProperty(id2)) continue;
@@ -444,6 +476,212 @@ function postOrder(data) {
   }
 
   return jsonResponse({ ok: true, orderId: orderId });
+}
+
+/**
+ * GET ?action=myOrders&telefone=XXX
+ * Lista pedidos do usuário (por telefone). Retorna orderId, timestamp, nome, email, telefone, bairro, observacoes, itens, status.
+ */
+function getMyOrders(telefoneParam) {
+  var telefone = normalizePhone(telefoneParam);
+  if (telefone.length < 10) {
+    return jsonResponse({ ok: false, error: 'Telefone inválido' }, 400);
+  }
+  var sheet = getSheet(SHEET_ORDERS);
+  if (!sheet) return jsonResponse({ ok: false, error: 'Planilha não configurada' }, 500);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonResponse({ ok: true, orders: [] });
+
+  var numCols = Math.max(8, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
+  var orders = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var rowTel = normalizePhone(String(row[4] || ''));
+    if (rowTel !== telefone) continue;
+    var status = row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '' ? String(row[8]).trim().toLowerCase() : 'ativo';
+    orders.push({
+      orderId: String(row[0] || ''),
+      timestamp: String(row[1] || ''),
+      nome: String(row[2] || ''),
+      email: String(row[3] || ''),
+      telefone: String(row[4] || ''),
+      bairro: String(row[5] || ''),
+      observacoes: String(row[6] || ''),
+      itens: String(row[7] || '{}'),
+      status: status
+    });
+  }
+  orders.reverse();
+  return jsonResponse({ ok: true, orders: orders });
+}
+
+/**
+ * Retorna o número da linha (1-based) do pedido ou 0 se não existir.
+ */
+function findOrderRow(sheet, orderId) {
+  if (!sheet || !orderId) return 0;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var ids = sheet.getRange(2, 1, lastRow, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || '').trim() === String(orderId).trim()) return i + 2;
+  }
+  return 0;
+}
+
+/**
+ * Devolve ao estoque as quantidades do objeto itens (id -> qty).
+ */
+function restoreStockForItens(itensObj) {
+  if (!itensObj || typeof itensObj !== 'object') return;
+  var sheetItems = getSheet(SHEET_ITEMS);
+  if (!sheetItems) return;
+  var lastRow = sheetItems.getLastRow();
+  if (lastRow < 2) return;
+  var data = sheetItems.getRange(2, 1, lastRow, 5).getValues();
+  var idToRow = {};
+  for (var i = 0; i < data.length; i++) {
+    idToRow[String(data[i][0] || '').trim()] = i + 2;
+  }
+  for (var id in itensObj) {
+    if (!itensObj.hasOwnProperty(id)) continue;
+    var qty = parseInt(itensObj[id], 10) || 0;
+    if (qty <= 0) continue;
+    var rowNum = idToRow[id];
+    if (!rowNum) continue;
+    var current = parseInt(sheetItems.getRange(rowNum, 5).getValue(), 10) || 0;
+    sheetItems.getRange(rowNum, 5).setValue(current + qty);
+  }
+}
+
+/**
+ * POST { action: 'cancelOrder', orderId, telefone }
+ * Marca o pedido como cancelado e devolve os itens ao estoque.
+ */
+function postCancelOrder(data) {
+  if (data.action !== 'cancelOrder') {
+    return jsonResponse({ ok: false, error: 'action must be cancelOrder' }, 400);
+  }
+  var orderId = (data.orderId || '').toString().trim();
+  var telefone = normalizePhone((data.telefone || '').toString());
+  if (!orderId || telefone.length < 10) {
+    return jsonResponse({ ok: false, error: 'orderId e telefone são obrigatórios' }, 400);
+  }
+  var sheetOrders = getSheet(SHEET_ORDERS);
+  if (!sheetOrders) return jsonResponse({ ok: false, error: 'Planilha não configurada' }, 500);
+
+  var rowNum = findOrderRow(sheetOrders, orderId);
+  if (rowNum === 0) {
+    return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+  }
+  var rowTel = normalizePhone(String(sheetOrders.getRange(rowNum, 5).getValue() || ''));
+  if (rowTel !== telefone) {
+    return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
+  }
+  var statusCell = sheetOrders.getRange(rowNum, 9);
+  var currentStatus = String(statusCell.getValue() || '').trim().toLowerCase();
+  if (currentStatus === 'cancelado') {
+    return jsonResponse({ ok: true, message: 'Pedido já estava cancelado' });
+  }
+  var itensStr = String(sheetOrders.getRange(rowNum, 8).getValue() || '{}');
+  var itensObj;
+  try {
+    itensObj = JSON.parse(itensStr);
+  } catch (e) {
+    itensObj = {};
+  }
+  restoreStockForItens(itensObj);
+  statusCell.setValue('cancelado');
+  return jsonResponse({ ok: true, message: 'Pedido cancelado' });
+}
+
+/**
+ * POST { action: 'updateOrder', orderId, telefone, itens, bairro?, observacoes? }
+ * Atualiza itens (e opcionalmente bairro, observacoes) do pedido e ajusta estoque.
+ */
+function postUpdateOrder(data) {
+  if (data.action !== 'updateOrder') {
+    return jsonResponse({ ok: false, error: 'action must be updateOrder' }, 400);
+  }
+  var orderId = (data.orderId || '').toString().trim();
+  var telefone = normalizePhone((data.telefone || '').toString());
+  var itens = data.itens;
+  if (!orderId || telefone.length < 10) {
+    return jsonResponse({ ok: false, error: 'orderId e telefone são obrigatórios' }, 400);
+  }
+  if (!itens || typeof itens !== 'object') {
+    return jsonResponse({ ok: false, error: 'itens obrigatório' }, 400);
+  }
+
+  var sheetOrders = getSheet(SHEET_ORDERS);
+  var sheetItems = getSheet(SHEET_ITEMS);
+  if (!sheetOrders || !sheetItems) {
+    return jsonResponse({ ok: false, error: 'Planilha não configurada' }, 500);
+  }
+
+  var rowNum = findOrderRow(sheetOrders, orderId);
+  if (rowNum === 0) {
+    return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+  }
+  var rowTel = normalizePhone(String(sheetOrders.getRange(rowNum, 5).getValue() || ''));
+  if (rowTel !== telefone) {
+    return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
+  }
+  var statusCell = sheetOrders.getRange(rowNum, 9);
+  if (String(statusCell.getValue() || '').trim().toLowerCase() === 'cancelado') {
+    return jsonResponse({ ok: false, error: 'Não é possível editar pedido cancelado' }, 400);
+  }
+
+  var lastRowItems = sheetItems.getLastRow();
+  if (lastRowItems < 2) return jsonResponse({ ok: false, error: 'Nenhum item cadastrado' }, 400);
+  var itemsData = sheetItems.getRange(2, 1, lastRowItems, 5).getValues();
+  var idToRow = {};
+  var idToEstoque = {};
+  for (var i = 0; i < itemsData.length; i++) {
+    var id = String(itemsData[i][0] || '').trim();
+    idToRow[id] = i + 2;
+    idToEstoque[id] = parseInt(itemsData[i][4], 10) || 0;
+  }
+
+  var oldItensStr = String(sheetOrders.getRange(rowNum, 8).getValue() || '{}');
+  var oldItens;
+  try {
+    oldItens = JSON.parse(oldItensStr);
+  } catch (e) {
+    oldItens = {};
+  }
+  restoreStockForItens(oldItens);
+  for (var id in itens) {
+    if (!itens.hasOwnProperty(id)) continue;
+    var qty = parseInt(itens[id], 10) || 0;
+    if (qty <= 0) continue;
+    if (!idToRow[id]) {
+      restoreStockForItens(oldItens);
+      return jsonResponse({ ok: false, error: 'Item inválido: ' + id }, 400);
+    }
+    var disponivel = (idToEstoque[id] || 0) + (parseInt(oldItens[id], 10) || 0);
+    if (disponivel < qty) {
+      restoreStockForItens(oldItens);
+      return jsonResponse({ ok: false, error: 'Estoque insuficiente para o item: ' + id }, 400);
+    }
+  }
+
+  sheetOrders.getRange(rowNum, 8).setValue(JSON.stringify(itens));
+  if (data.bairro !== undefined) sheetOrders.getRange(rowNum, 6).setValue(String(data.bairro || '').trim());
+  if (data.observacoes !== undefined) sheetOrders.getRange(rowNum, 7).setValue(String(data.observacoes || '').trim());
+
+  for (var id2 in itens) {
+    if (!itens.hasOwnProperty(id2)) continue;
+    var qty2 = parseInt(itens[id2], 10) || 0;
+    if (qty2 <= 0) continue;
+    var r = idToRow[id2];
+    var estoqueAposDevolucao = (idToEstoque[id2] || 0) + (parseInt(oldItens[id2], 10) || 0);
+    var novoEstoque = Math.max(0, estoqueAposDevolucao - qty2);
+    sheetItems.getRange(r, 5).setValue(novoEstoque);
+  }
+
+  return jsonResponse({ ok: true, message: 'Pedido atualizado' });
 }
 
 /**
@@ -483,13 +721,13 @@ function runSetupPlanilha() {
   // Usar a primeira aba como Items (renomear, limpar, preencher)
   firstSheet.setName(SHEET_ITEMS);
   firstSheet.clear();
-  firstSheet.getRange(1, 1, 1, 7).setValues([['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem']]);
-  firstSheet.getRange(1, 1, 1, 7).setFontWeight('bold');
-  firstSheet.appendRow(['arroz', 'Arroz integral', 'kg', 'TRUE', 50, 0, 1]);
-  firstSheet.appendRow(['feijao', 'Feijão', 'kg', 'TRUE', 30, 0, 2]);
-  firstSheet.appendRow(['azeite', 'Azeite extra virgem', 'un', 'TRUE', 20, 0, 3]);
-  firstSheet.appendRow(['ovos', 'Ovos caipira', 'dúzia', 'TRUE', 40, 0, 4]);
-  firstSheet.appendRow(['verduras', 'Verduras e legumes orgânicos', 'kg', 'TRUE', 25, 0, 5]);
+  firstSheet.getRange(1, 1, 1, 8).setValues([['id', 'nome', 'unidade', 'ativo', 'estoque', 'preco', 'ordem', 'imagem']]);
+  firstSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+  firstSheet.appendRow(['arroz', 'Arroz integral', 'kg', 'TRUE', 50, 0, 1, '']);
+  firstSheet.appendRow(['feijao', 'Feijão', 'kg', 'TRUE', 30, 0, 2, '']);
+  firstSheet.appendRow(['azeite', 'Azeite extra virgem', 'un', 'TRUE', 20, 0, 3, '']);
+  firstSheet.appendRow(['ovos', 'Ovos caipira', 'dúzia', 'TRUE', 40, 0, 4, '']);
+  firstSheet.appendRow(['verduras', 'Verduras e legumes orgânicos', 'kg', 'TRUE', 25, 0, 5, '']);
 
   // Criar aba Users se não existir
   var sheetUsers = ss.getSheetByName(SHEET_USERS);
@@ -502,9 +740,141 @@ function runSetupPlanilha() {
   var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
   if (!sheetOrders) sheetOrders = ss.insertSheet(SHEET_ORDERS);
   sheetOrders.clear();
-  sheetOrders.getRange(1, 1, 1, 8).setValues([['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens']]);
-  sheetOrders.getRange(1, 1, 1, 8).setFontWeight('bold');
+  sheetOrders.getRange(1, 1, 1, 9).setValues([['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens', 'status']]);
+  sheetOrders.getRange(1, 1, 1, 9).setFontWeight('bold');
 
   Logger.log('Planilha alterada: ' + nomePlanilha + ' - ' + planilhaUrl);
   return 'Pronto! Planilha "' + nomePlanilha + '" alterada.\n\nURL desta planilha:\n' + planilhaUrl + '\n\nConfira se a aba do navegador é ESTA mesma URL. Se não for, você estava olhando outra planilha. Abra o link acima e verá Items, Users e Orders.';
+}
+
+/**
+ * Cria ou atualiza as abas "Separação" (visão geral) e "Separação por pedido".
+ * Cada linha = um item de um pedido: orderId, nome, telefone, item, quantidade, valor unit., total.
+ * Execute esta função quando quiser atualizar a lista após novos pedidos (pode colocar no menu da planilha).
+ */
+function runAtualizarSeparacao() {
+  var ss = getSpreadsheet();
+  if (!ss) throw new Error('Nenhuma planilha ativa. Abra a planilha ou configure SPREADSHEET_ID nas propriedades do script.');
+
+  var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
+  var sheetItems = ss.getSheetByName(SHEET_ITEMS);
+  if (!sheetOrders || !sheetItems) {
+    throw new Error('Abas Orders e Items são obrigatórias.');
+  }
+
+  var lastOrder = sheetOrders.getLastRow();
+  var lastItem = sheetItems.getLastRow();
+  if (lastOrder < 2) {
+    criarOuLimparSeparacao(ss, []);
+    return 'Separação atualizada. Nenhum pedido na planilha.';
+  }
+
+  var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
+  var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
+  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, 8).getValues() : [];
+  var idToNome = {};
+  var idToUnidade = {};
+  var idToPreco = {};
+  for (var i = 0; i < itemData.length; i++) {
+    var id = String(itemData[i][0] || '').trim();
+    idToNome[id] = String(itemData[i][1] || '').trim();
+    idToUnidade[id] = String(itemData[i][2] || '').trim();
+    idToPreco[id] = parseFloat(itemData[i][5]) || 0;
+  }
+
+  var linhas = [];
+  for (var o = 0; o < orderData.length; o++) {
+    var row = orderData[o];
+    var status = (row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '') ? String(row[8]).trim().toLowerCase() : 'ativo';
+    if (status === 'cancelado') continue;
+
+    var orderId = String(row[0] || '').trim();
+    var nome = String(row[2] || '').trim();
+    var email = String(row[3] || '').trim();
+    var telefone = String(row[4] || '').trim();
+    var bairro = String(row[5] || '').trim();
+    var observacoes = String(row[6] || '').trim();
+    var itensStr = String(row[7] || '{}');
+    var itensObj;
+    try {
+      itensObj = JSON.parse(itensStr);
+    } catch (e) {
+      itensObj = {};
+    }
+    for (var itemId in itensObj) {
+      if (!itensObj.hasOwnProperty(itemId)) continue;
+      var qty = parseInt(itensObj[itemId], 10) || 0;
+      if (qty <= 0) continue;
+      var precoUn = idToPreco[itemId] != null ? idToPreco[itemId] : 0;
+      var totalLinha = precoUn * qty;
+      linhas.push([
+        orderId,
+        nome,
+        telefone,
+        email,
+        bairro,
+        observacoes,
+        itemId,
+        idToNome[itemId] != null ? idToNome[itemId] : itemId,
+        idToUnidade[itemId] != null ? idToUnidade[itemId] : '',
+        qty,
+        precoUn,
+        totalLinha
+      ]);
+    }
+  }
+
+  criarOuLimparSeparacao(ss, linhas);
+  return 'Separação atualizada. ' + linhas.length + ' linha(s) de itens (pedidos ativos).';
+}
+
+/**
+ * Cabeçalhos das abas de separação.
+ */
+var SEPARACAO_HEADERS = [
+  'orderId', 'nome', 'telefone', 'email', 'bairro', 'observacoes',
+  'item_id', 'item_nome', 'unidade', 'quantidade', 'valor_unit', 'total'
+];
+
+function criarOuLimparSeparacao(ss, linhas) {
+  var sheetGeral = ss.getSheetByName(SHEET_SEPARACAO);
+  if (!sheetGeral) sheetGeral = ss.insertSheet(SHEET_SEPARACAO);
+  sheetGeral.clear();
+  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setValues([SEPARACAO_HEADERS]);
+  sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setFontWeight('bold');
+  if (linhas.length > 0) {
+    sheetGeral.getRange(2, 1, linhas.length + 1, SEPARACAO_HEADERS.length).setValues(linhas);
+  }
+
+  var sheetPorPedido = ss.getSheetByName(SHEET_SEPARACAO_POR_PEDIDO);
+  if (!sheetPorPedido) sheetPorPedido = ss.insertSheet(SHEET_SEPARACAO_POR_PEDIDO);
+  sheetPorPedido.clear();
+  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setValues([SEPARACAO_HEADERS]);
+  sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS.length).setFontWeight('bold');
+  if (linhas.length > 0) {
+    var rowsPorPedido = [];
+    var lastOrderId = null;
+    for (var i = 0; i < linhas.length; i++) {
+      var orderId = linhas[i][0];
+      if (lastOrderId !== null && orderId !== lastOrderId) {
+        rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
+      }
+      lastOrderId = orderId;
+      rowsPorPedido.push(linhas[i]);
+    }
+    sheetPorPedido.getRange(2, 1, rowsPorPedido.length + 1, SEPARACAO_HEADERS.length).setValues(rowsPorPedido);
+  }
+}
+
+/**
+ * Menu na planilha: Compra Coletiva > Atualizar Separação
+ * Ativar: defina o gatilho onOpen no projeto ou execute runAtualizarSeparacao manualmente.
+ */
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  if (ui) {
+    ui.createMenu('Compra Coletiva')
+      .addItem('Atualizar Separação (pedidos em linhas)', 'runAtualizarSeparacao')
+      .addToUi();
+  }
 }

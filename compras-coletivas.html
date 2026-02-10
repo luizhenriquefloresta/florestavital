@@ -25,6 +25,8 @@
       border-bottom: 1px solid rgba(45, 74, 62, 0.08);
     }
     .item-row:last-of-type { border-bottom: none; }
+    .item-row .item-img-wrap { flex-shrink: 0; }
+    .item-row .item-img { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-md); display: block; background: var(--sand); }
     .item-row label { margin-bottom: 0; flex: 1; }
     .item-row .unidade { font-size: 0.85rem; color: var(--text-soft); font-weight: 400; }
     .item-row input[type="number"] {
@@ -43,6 +45,17 @@
     .form-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
     .cc-user-bar { background: var(--sand); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); margin-bottom: var(--space-md); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
     .cc-user-bar strong { color: var(--forest); }
+    .cc-pedidos-lista { list-style: none; padding: 0; margin: 0; }
+    .cc-pedidos-lista li { padding: var(--space-md); border: 1px solid rgba(45, 74, 62, 0.12); border-radius: var(--radius-md); margin-bottom: var(--space-sm); background: var(--sand); }
+    .cc-pedidos-lista li.cancelado { opacity: 0.75; }
+    .cc-pedidos-lista .pedido-meta { font-size: 0.85rem; color: var(--text-soft); margin-bottom: var(--space-xs); }
+    .cc-pedidos-lista .pedido-itens { font-size: 0.9rem; margin-bottom: var(--space-sm); }
+    .cc-pedidos-lista .pedido-acoes { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+    .cc-pedidos-lista .pedido-acoes button { padding: var(--space-xs) var(--space-md); font-size: 0.9rem; min-height: 36px; }
+    .cc-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: var(--space-md); box-sizing: border-box; }
+    .cc-modal[hidden] { display: none; }
+    .cc-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .cc-modal-content { position: relative; max-width: 100%; max-height: 90vh; overflow-y: auto; width: 100%; }
     @media (min-width: 600px) {
       .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; }
     }
@@ -144,6 +157,11 @@
               <span><strong id="ccUserName"></strong> · <span id="ccUserPhone"></span></span>
               <a href="#" id="ccSair" class="cc-link">Sair</a>
             </div>
+            <div class="form-divider" id="ccMeusPedidosWrap">
+              <h3>Meus pedidos</h3>
+              <p id="ccMeusPedidosMsg" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Carregando…</p>
+              <ul id="ccMeusPedidosLista" class="cc-pedidos-lista" aria-label="Lista de pedidos"></ul>
+            </div>
             <form id="formCompraColetiva" novalidate>
               <div class="form-divider">
                 <h3>Seus dados no pedido</h3>
@@ -174,6 +192,33 @@
 
               <div id="msgCompra" class="form-msg" role="alert" aria-live="polite"></div>
               <button type="submit" class="btn btn-primary cc-btn" id="btnEnviarCompra">Enviar pedido</button>
+            </form>
+          </div>
+        </div>
+        <!-- Modal editar pedido -->
+        <div id="ccModalEditar" class="cc-modal" role="dialog" aria-labelledby="ccModalEditarTitle" aria-modal="true" hidden>
+          <div class="cc-modal-backdrop" id="ccModalEditarBackdrop"></div>
+          <div class="cc-modal-content card">
+            <h2 id="ccModalEditarTitle" class="cc-step-title">Editar pedido</h2>
+            <p id="ccModalEditarOrderId" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);"></p>
+            <form id="formEditarPedido" novalidate>
+              <div class="form-group">
+                <label for="editBairro">Bairro ou região de retirada</label>
+                <input type="text" id="editBairro" placeholder="Onde prefere retirar" aria-label="Bairro">
+              </div>
+              <div class="form-group">
+                <label for="editObs">Observações</label>
+                <textarea id="editObs" placeholder="Alergias, preferências, etc." aria-label="Observações" rows="2"></textarea>
+              </div>
+              <div class="form-divider">
+                <h3>Quantidades</h3>
+              </div>
+              <div id="ccEditItensContainer"></div>
+              <div id="msgEditPedido" class="form-msg" role="alert" aria-live="polite"></div>
+              <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-md);">
+                <button type="button" class="btn btn-secondary" id="ccModalEditarFechar">Fechar</button>
+                <button type="submit" class="btn btn-primary" id="btnSalvarEdicao">Salvar alterações</button>
+              </div>
             </form>
           </div>
         </div>

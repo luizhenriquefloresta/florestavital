@@ -10,47 +10,61 @@
  * 4. Use a URL do worker em js/config.js (ex.: https://seu-worker.seu-subdominio.workers.dev)
  */
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
+function corsHeaders() {
+  return new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  });
+}
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
-    }
+    try {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: corsHeaders() });
+      }
 
-    const scriptUrl = env.SCRIPT_URL;
-    if (!scriptUrl) {
-      return new Response(JSON.stringify({ ok: false, error: 'SCRIPT_URL not configured' }), {
+      const scriptUrl = env.SCRIPT_URL;
+      if (!scriptUrl || typeof scriptUrl !== 'string') {
+        const h = corsHeaders();
+        h.set('Content-Type', 'application/json');
+        return new Response(JSON.stringify({ ok: false, error: 'SCRIPT_URL not configured in Worker' }), {
+          status: 500,
+          headers: h,
+        });
+      }
+
+      const url = new URL(request.url);
+      const targetUrl = scriptUrl.replace(/\/$/, '') + (url.search || '');
+
+      const init = {
+        method: request.method,
+        headers: {},
+      };
+      if (request.method === 'POST' && request.body) {
+        // Ler o body em buffer para evitar erro em redirects (stream só pode ser lido uma vez)
+        init.body = await request.arrayBuffer();
+        const ct = request.headers.get('Content-Type');
+        if (ct) init.headers['Content-Type'] = ct;
+      }
+
+      const response = await fetch(targetUrl, init);
+      const newHeaders = corsHeaders();
+      response.headers.forEach((v, k) => newHeaders.set(k, v));
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders,
+      });
+    } catch (e) {
+      const h = corsHeaders();
+      h.set('Content-Type', 'application/json');
+      return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        headers: h,
       });
     }
-
-    const url = new URL(request.url);
-    const targetUrl = scriptUrl + (url.search || '');
-
-    const init = {
-      method: request.method,
-      headers: {},
-    };
-    if (request.method === 'POST' && request.body) {
-      init.body = request.body;
-      const ct = request.headers.get('Content-Type');
-      if (ct) init.headers['Content-Type'] = ct;
-    }
-
-    const response = await fetch(targetUrl, init);
-    const newHeaders = new Headers(response.headers);
-    Object.entries(CORS_HEADERS).forEach(([k, v]) => newHeaders.set(k, v));
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders,
-    });
   },
 };

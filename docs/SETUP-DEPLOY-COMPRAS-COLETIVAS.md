@@ -12,17 +12,19 @@
    - E1: `estoque`
    - F1: `preco`
    - G1: `ordem`
+   - H1: `imagem` (opcional — URL pública da foto do item)
 4. A partir da linha 2, cadastre os itens. Exemplo:
 
-   | id   | nome                    | unidade | ativo | estoque | preco | ordem |
-   |------|--------------------------|--------|-------|---------|-------|-------|
-   | arroz | Arroz integral           | kg     | TRUE  | 50      | 0     | 1     |
-   | feijao | Feijão                  | kg     | TRUE  | 30      | 0     | 2     |
-   | azeite | Azeite extra virgem     | un     | TRUE  | 20      | 0     | 3     |
+   | id   | nome                    | unidade | ativo | estoque | preco | ordem | imagem |
+   |------|--------------------------|--------|-------|---------|-------|-------|--------|
+   | arroz | Arroz integral           | kg     | TRUE  | 50      | 0     | 1     | (URL)  |
+   | feijao | Feijão                  | kg     | TRUE  | 30      | 0     | 2     |        |
+   | azeite | Azeite extra virgem     | un     | TRUE  | 20      | 0     | 3     |        |
 
    - **ativo:** `TRUE` = aparece na página pública; `FALSE` = oculto.
    - **estoque:** número inteiro; o sistema debita ao registrar pedido.
    - **preco** e **ordem:** opcionais (podem ser 0).
+   - **imagem:** URL pública da imagem do item (ex.: link do Google Drive em “qualquer pessoa com o link”, ou Imgur). Se vazio, o item aparece sem foto. O painel admin permite editar essa URL.
 
 5. Crie uma **segunda aba** e renomeie para **Users** (nome exato). Na primeira linha:
    - A1: `telefone`
@@ -44,6 +46,8 @@
    - H1: `itens`
 
 As linhas de pedidos serão preenchidas automaticamente pelo script. O campo **email** pode ficar vazio (é opcional no pedido).
+
+Para **separar pedidos** em linhas (um item por linha, com nome, telefone, quantidade, valor e total), use o menu **Compra Coletiva** → **Atualizar Separação** na planilha; o script criará as abas **Separação** (visão geral) e **Separação por pedido**. Detalhes em [SEPARACAO-PEDIDOS.md](SEPARACAO-PEDIDOS.md).
 
 ---
 

@@ -113,7 +113,7 @@
     if (!tbody) return;
     tbody.innerHTML = '';
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">Nenhum item na planilha.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8">Nenhum item na planilha.</td></tr>';
       return;
     }
     items.forEach(function (it) {
@@ -125,7 +125,8 @@
         '<td><input type="checkbox" class="admin-ativo" ' + (it.ativo ? 'checked' : '') + ' data-id="' + escapeHtml(it.id) + '" aria-label="Item ativo"></td>' +
         '<td><input type="number" min="0" class="admin-input admin-estoque" value="' + (it.estoque || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Estoque"></td>' +
         '<td><input type="number" min="0" step="0.01" class="admin-input admin-preco" value="' + (it.preco || '') + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Preço"></td>' +
-        '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>';
+        '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>' +
+        '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>';
       tbody.appendChild(tr);
     });
   }
@@ -152,7 +153,7 @@
   function collectItemsFromForm() {
     var rows = elItensTable && elItensTable.querySelectorAll('tbody tr');
     if (!rows || rows.length === 0) return currentItems.map(function (it) {
-      return { id: it.id, nome: it.nome, unidade: it.unidade, ativo: it.ativo, estoque: it.estoque, preco: it.preco, ordem: it.ordem };
+      return { id: it.id, nome: it.nome, unidade: it.unidade, ativo: it.ativo, estoque: it.estoque, preco: it.preco, ordem: it.ordem, imagem: it.imagem || '' };
     });
     var out = [];
     for (var i = 0; i < rows.length; i++) {
@@ -164,6 +165,7 @@
       var estoque = parseInt(rows[i].querySelector('.admin-estoque') && rows[i].querySelector('.admin-estoque').value, 10);
       var preco = parseFloat(rows[i].querySelector('.admin-preco') && rows[i].querySelector('.admin-preco').value);
       var ordem = parseInt(rows[i].querySelector('.admin-ordem') && rows[i].querySelector('.admin-ordem').value, 10);
+      var imagem = (rows[i].querySelector('.admin-imagem') && rows[i].querySelector('.admin-imagem').value || '').trim();
       out.push({
         id: id,
         nome: nome,
@@ -171,7 +173,8 @@
         ativo: ativo,
         estoque: isNaN(estoque) ? 0 : estoque,
         preco: isNaN(preco) ? 0 : preco,
-        ordem: isNaN(ordem) ? 0 : ordem
+        ordem: isNaN(ordem) ? 0 : ordem,
+        imagem: imagem
       });
     }
     return out;

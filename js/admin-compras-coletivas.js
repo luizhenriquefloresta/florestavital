@@ -264,12 +264,21 @@
     elResumoItens.innerHTML = '<p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Resumo agregado pelos últimos 20 pedidos:</p>' + html;
   }
 
+  function statusLabel(s) {
+    if (!s) return 'Ativo';
+    s = String(s).toLowerCase();
+    if (s === 'cancelado') return 'Cancelado';
+    if (s === 'separado') return 'Separado';
+    if (s === 'entregue') return 'Entregue';
+    return 'Ativo';
+  }
+
   function renderOrders(orders) {
     var tbody = elOrdersTable && elOrdersTable.querySelector('tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!orders || orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">Nenhum pedido recente.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9">Nenhum pedido recente.</td></tr>';
       return;
     }
     orders.forEach(function (o) {
@@ -280,6 +289,15 @@
       } catch (e) {
         itensStr = o.itens || '';
       }
+      var status = (o.status || '').toLowerCase();
+      var acoes = '';
+      if (status === 'ativo') {
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '" title="Marcar como separado">Separado</button>';
+      } else if (status === 'separado') {
+        acoes = '<button type="button" class="btn btn-primary admin-btn-entregue" data-order-id="' + escapeHtml(o.orderId) + '" title="Marcar como entregue">Entregue</button>';
+      } else if (status !== 'cancelado' && status !== 'entregue') {
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '">Separado</button>';
+      }
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td><code>' + escapeHtml(o.orderId) + '</code></td>' +
@@ -288,9 +306,42 @@
         '<td>' + escapeHtml(o.email) + '</td>' +
         '<td>' + escapeHtml(o.telefone) + '</td>' +
         '<td>' + escapeHtml(o.bairro) + '</td>' +
-        '<td style="font-size:0.85rem;">' + escapeHtml(itensStr) + '</td>';
+        '<td>' + escapeHtml(statusLabel(o.status)) + '</td>' +
+        '<td style="font-size:0.85rem;">' + escapeHtml(itensStr) + '</td>' +
+        '<td style="white-space:nowrap;">' + acoes + '</td>';
       tbody.appendChild(tr);
     });
+    tbody.querySelectorAll('.admin-btn-separado').forEach(function (btn) {
+      btn.addEventListener('click', function () { setOrderStatus(btn.getAttribute('data-order-id'), 'separado', btn); });
+    });
+    tbody.querySelectorAll('.admin-btn-entregue').forEach(function (btn) {
+      btn.addEventListener('click', function () { setOrderStatus(btn.getAttribute('data-order-id'), 'entregue', btn); });
+    });
+  }
+
+  function setOrderStatus(orderId, status, clickedBtn) {
+    var token = getToken();
+    if (!token) return logout();
+    if (clickedBtn) clickedBtn.disabled = true;
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'updateOrderStatus', token: token, orderId: orderId, status: status })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showMsg('Status atualizado para ' + (status === 'separado' ? 'Separado' : 'Entregue') + '.', false);
+          loadOrders();
+        } else {
+          showMsg((data && data.error) || 'Erro ao atualizar status.', true);
+          if (clickedBtn) clickedBtn.disabled = false;
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+        if (clickedBtn) clickedBtn.disabled = false;
+      });
   }
 
   function exportCsv() {
@@ -298,10 +349,11 @@
       showMsg('Nenhum pedido para exportar.', true);
       return;
     }
-    var headers = ['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'itens'];
+    var headers = ['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'status', 'itens'];
     var rows = [headers.join(',')];
     currentOrders.forEach(function (o) {
       var itensStr = (o.itens || '').replace(/"/g, '""');
+      var status = (o.status || 'ativo').toString().replace(/"/g, '""');
       rows.push([
         '"' + (o.orderId || '').replace(/"/g, '""') + '"',
         '"' + (o.timestamp || '').replace(/"/g, '""') + '"',
@@ -310,6 +362,7 @@
         '"' + (o.telefone || '').replace(/"/g, '""') + '"',
         '"' + (o.bairro || '').replace(/"/g, '""') + '"',
         '"' + (o.observacoes || '').replace(/"/g, '""') + '"',
+        '"' + status + '"',
         '"' + itensStr + '"'
       ].join(','));
     });

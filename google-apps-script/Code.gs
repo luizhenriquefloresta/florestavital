@@ -9,6 +9,8 @@ var SHEET_ORDERS = 'Orders';
 var SHEET_USERS = 'Users';
 var SHEET_SEPARACAO = 'Separacao';
 var SHEET_SEPARACAO_POR_PEDIDO = 'Separacao por pedido';
+var SHEET_PEDIDOS_SEPARADOS = 'Pedidos separados';
+var SHEET_PEDIDOS_ENTREGUES = 'Pedidos entregues';
 var PROP_ADMIN_TOKEN = 'ADMIN_TOKEN';
 
 /**
@@ -96,6 +98,12 @@ function doPost(e) {
   }
   if (data.action === 'updateOrder') {
     return postUpdateOrder(data);
+  }
+  if (data.action === 'updateOrderStatus') {
+    if (!isAdminTokenValid(token)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    return postUpdateOrderStatus(data);
   }
 
   return jsonResponse({ ok: false, error: 'Unknown action' }, 400);
@@ -355,7 +363,7 @@ function getItemsAdmin() {
 
 /**
  * Atualiza itens na planilha (estoque, ativo, imagem, e opcionalmente nome/unidade/preco/ordem).
- * items: array de { id, nome?, unidade?, ativo?, estoque?, preco?, ordem? }
+ * items: array de { id, nome?, unidade?, ativo?, estoque?, preco?, ordem?, imagem? }
  */
 function postItemsAdmin(items) {
   if (!items || !Array.isArray(items)) {
@@ -367,7 +375,10 @@ function postItemsAdmin(items) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true });
 
-  var numCols = Math.max(7, sheet.getLastColumn());
+  if (sheet.getLastColumn() < 8) {
+    sheet.getRange(1, 8).setValue('imagem');
+  }
+  var numCols = Math.max(8, sheet.getLastColumn());
   var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
   var idToRowIndex = {};
   for (var i = 0; i < data.length; i++) {
@@ -384,10 +395,10 @@ function postItemsAdmin(items) {
     if (it.hasOwnProperty('nome')) sheet.getRange(rowNum, 2).setValue(it.nome);
     if (it.hasOwnProperty('unidade')) sheet.getRange(rowNum, 3).setValue(it.unidade);
     if (it.hasOwnProperty('ativo')) sheet.getRange(rowNum, 4).setValue(it.ativo ? 'TRUE' : 'FALSE');
-    if (it.hasOwnProperty('imagem')) sheet.getRange(rowNum, 8).setValue(it.imagem != null ? String(it.imagem).trim() : '');
     if (it.hasOwnProperty('estoque')) sheet.getRange(rowNum, 5).setValue(Number(it.estoque) || 0);
     if (it.hasOwnProperty('preco')) sheet.getRange(rowNum, 6).setValue(Number(it.preco) || 0);
     if (it.hasOwnProperty('ordem')) sheet.getRange(rowNum, 7).setValue(Number(it.ordem) || 0);
+    if (it.hasOwnProperty('imagem')) sheet.getRange(rowNum, 8).setValue(it.imagem != null ? String(it.imagem).trim() : '');
   }
 
   return jsonResponse({ ok: true });
@@ -403,8 +414,8 @@ function getOrdersAdmin(limitStr) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return jsonResponse({ ok: true, orders: [] });
 
-  var numCols = Math.max(8, sheet.getLastColumn());
-  if (numCols < 8) numCols = 8;
+  var numCols = Math.max(9, sheet.getLastColumn());
+  if (numCols < 9) numCols = 9;
   var startRow = Math.max(2, lastRow - limit + 1);
   var data = sheet.getRange(startRow, 1, lastRow, numCols).getValues();
   var orders = [];
@@ -496,12 +507,7 @@ function postOrder(data) {
 
   try {
     var ss = getSpreadsheet();
-    Logger.log('[Separacao] postOrder: apos salvar pedido, ss=' + !!ss);
-    if (ss) {
-      var dados = buildDadosSeparacao(ss);
-      Logger.log('[Separacao] postOrder: buildDadosSeparacao retornou dados=' + !!dados + (dados ? ' linhasPorItem=' + (dados.linhasPorItem ? dados.linhasPorItem.length : 0) + ' linhas=' + (dados.linhas ? dados.linhas.length : 0) : ''));
-      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
-    }
+    if (ss) rebuildAllSeparacaoSheets(ss);
   } catch (e) {
     Logger.log('[Separacao] postOrder: erro ao atualizar abas - ' + (e.message || e));
   }
@@ -626,10 +632,7 @@ function postCancelOrder(data) {
   statusCell.setValue('cancelado');
   try {
     var ss = getSpreadsheet();
-    if (ss) {
-      var dados = buildDadosSeparacao(ss);
-      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
-    }
+    if (ss) rebuildAllSeparacaoSheets(ss);
   } catch (e) {}
   return jsonResponse({ ok: true, message: 'Pedido cancelado' });
 }
@@ -721,12 +724,48 @@ function postUpdateOrder(data) {
 
   try {
     var ss = getSpreadsheet();
-    if (ss) {
-      var dados = buildDadosSeparacao(ss);
-      if (dados) criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
-    }
+    if (ss) rebuildAllSeparacaoSheets(ss);
   } catch (e) {}
   return jsonResponse({ ok: true, message: 'Pedido atualizado' });
+}
+
+/**
+ * POST { action: 'updateOrderStatus', orderId, status: 'separado'|'entregue' }
+ * Apenas admin. Altera o status do pedido e reconstrói as abas de separação.
+ */
+function postUpdateOrderStatus(data) {
+  if (data.action !== 'updateOrderStatus') {
+    return jsonResponse({ ok: false, error: 'action must be updateOrderStatus' }, 400);
+  }
+  var orderId = (data.orderId || '').toString().trim();
+  var status = (data.status || '').toString().trim().toLowerCase();
+  if (!orderId) {
+    return jsonResponse({ ok: false, error: 'orderId obrigatório' }, 400);
+  }
+  if (status !== 'separado' && status !== 'entregue') {
+    return jsonResponse({ ok: false, error: 'status deve ser "separado" ou "entregue"' }, 400);
+  }
+  var sheetOrders = getSheet(SHEET_ORDERS);
+  if (!sheetOrders) {
+    return jsonResponse({ ok: false, error: 'Planilha Orders não encontrada' }, 500);
+  }
+  var rowNum = findOrderRow(sheetOrders, orderId);
+  if (rowNum === 0) {
+    return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+  }
+  var statusCell = sheetOrders.getRange(rowNum, 9);
+  var currentStatus = String(statusCell.getValue() || '').trim().toLowerCase();
+  if (currentStatus === 'cancelado') {
+    return jsonResponse({ ok: false, error: 'Não é possível alterar status de pedido cancelado' }, 400);
+  }
+  statusCell.setValue(status);
+  try {
+    var ss = getSpreadsheet();
+    if (ss) rebuildAllSeparacaoSheets(ss);
+  } catch (e) {
+    Logger.log('[Separacao] postUpdateOrderStatus: erro ao atualizar abas - ' + (e.message || e));
+  }
+  return jsonResponse({ ok: true, message: 'Status atualizado para ' + status });
 }
 
 /**
@@ -848,7 +887,7 @@ function buildDadosSeparacao(ss) {
   for (var o = 0; o < orderData.length; o++) {
     var row = orderData[o];
     var status = (row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '') ? String(row[8]).trim().toLowerCase() : 'ativo';
-    if (status === 'cancelado') continue;
+    if (status !== 'ativo') continue;
 
     var orderId = String(row[0] || '').trim();
     var nome = String(row[2] || '').trim();
@@ -898,15 +937,108 @@ function buildDadosSeparacao(ss) {
   }
   Logger.log('[Separacao] buildDadosSeparacao: retorna linhasPorItem=' + linhasPorItem.length + ' linhas=' + linhas.length);
   if (ssResolvidoAqui) {
-    Logger.log('[Separacao] buildDadosSeparacao: chamando criarOuLimparSeparacao (foi executado sem runAtualizarSeparacao)');
-    criarOuLimparSeparacao(ss, linhasPorItem, linhas);
+    Logger.log('[Separacao] buildDadosSeparacao: chamando rebuildAllSeparacaoSheets (foi executado sem runAtualizarSeparacao)');
+    rebuildAllSeparacaoSheets(ss);
   }
   return { linhasPorItem: linhasPorItem, linhas: linhas };
 }
 
 /**
- * Cria ou atualiza as abas Separacao (por item) e Separacao por pedido.
- * Execute pelo menu da planilha ou chame após criar/cancelar/editar pedido.
+ * Gera linhas no formato "Separacao por pedido" apenas para pedidos com o status indicado (ex.: 'separado', 'entregue').
+ * Retorna { linhas: [] }.
+ */
+function buildDadosLinhasPorStatus(ss, statusFilter) {
+  if (!ss || typeof ss.getSheetByName !== 'function') return { linhas: [] };
+  var sheetOrders = ss.getSheetByName(SHEET_ORDERS);
+  var sheetItems = ss.getSheetByName(SHEET_ITEMS);
+  if (!sheetOrders || !sheetItems) return { linhas: [] };
+  var lastOrder = sheetOrders.getLastRow();
+  var lastItem = sheetItems.getLastRow();
+  if (lastOrder < 2) return { linhas: [] };
+
+  var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
+  var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
+  var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
+  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
+  var idToNome = {};
+  var idToUnidade = {};
+  var idToPreco = {};
+  for (var i = 0; i < itemData.length; i++) {
+    var id = String(itemData[i][0] || '').trim();
+    idToNome[id] = String(itemData[i][1] || '').trim();
+    idToUnidade[id] = String(itemData[i][2] || '').trim();
+    idToPreco[id] = parseFloat(itemData[i][5]) || 0;
+  }
+
+  var linhas = [];
+  for (var o = 0; o < orderData.length; o++) {
+    var row = orderData[o];
+    var status = (row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '') ? String(row[8]).trim().toLowerCase() : 'ativo';
+    if (status !== statusFilter) continue;
+
+    var orderId = String(row[0] || '').trim();
+    var nome = String(row[2] || '').trim();
+    var email = String(row[3] || '').trim();
+    var telefone = String(row[4] || '').trim();
+    var bairro = String(row[5] || '').trim();
+    var observacoes = String(row[6] || '').trim();
+    var itensStr = String(row[7] || '{}');
+    var itensObj;
+    try {
+      itensObj = JSON.parse(itensStr);
+    } catch (e) {
+      itensObj = {};
+    }
+    for (var itemId in itensObj) {
+      if (!itensObj.hasOwnProperty(itemId)) continue;
+      var qty = parseInt(itensObj[itemId], 10) || 0;
+      if (qty <= 0) continue;
+      var precoUn = idToPreco[itemId] != null ? idToPreco[itemId] : 0;
+      var totalLinha = precoUn * qty;
+      linhas.push([
+        orderId,
+        nome,
+        telefone,
+        email,
+        bairro,
+        observacoes,
+        itemId,
+        idToNome[itemId] != null ? idToNome[itemId] : itemId,
+        idToUnidade[itemId] != null ? idToUnidade[itemId] : '',
+        qty,
+        precoUn,
+        totalLinha
+      ]);
+    }
+  }
+  return { linhas: linhas };
+}
+
+/**
+ * Reconstrói as 4 abas de separação: Separacao, Separacao por pedido (só ativo), Pedidos separados, Pedidos entregues.
+ * Retorna { linhasPorItem, linhas, linhasSep, linhasEnt } (contagens) ou null em caso de falha.
+ */
+function rebuildAllSeparacaoSheets(ss) {
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    try {
+      ss = getSpreadsheet();
+    } catch (e) {
+      Logger.log('[Separacao] rebuildAllSeparacaoSheets: getSpreadsheet falhou - ' + (e.message || e));
+      return null;
+    }
+  }
+  var dados = buildDadosSeparacao(ss);
+  var linhasPorItem = (dados && dados.linhasPorItem) ? dados.linhasPorItem : [];
+  var linhas = (dados && dados.linhas) ? dados.linhas : [];
+  var sep = buildDadosLinhasPorStatus(ss, 'separado');
+  var ent = buildDadosLinhasPorStatus(ss, 'entregue');
+  criarOuLimparSeparacao(ss, linhasPorItem, linhas, sep.linhas || [], ent.linhas || []);
+  return { linhasPorItem: linhasPorItem, linhas: linhas, linhasSep: sep.linhas || [], linhasEnt: ent.linhas || [] };
+}
+
+/**
+ * Cria ou atualiza as abas Separacao (por item), Separacao por pedido, Pedidos separados e Pedidos entregues.
+ * Execute pelo menu da planilha ou chame após criar/cancelar/editar pedido ou alterar status.
  */
 function runAtualizarSeparacao() {
   Logger.log('[Separacao] runAtualizarSeparacao: INICIO');
@@ -928,21 +1060,17 @@ function runAtualizarSeparacao() {
     Logger.log('[Separacao] runAtualizarSeparacao: lastOrder=' + lastOrder);
     if (lastOrder < 2) {
       Logger.log('[Separacao] runAtualizarSeparacao: sem pedidos, chama criarOuLimparSeparacao vazio');
-      criarOuLimparSeparacao(ss, [], []);
+      criarOuLimparSeparacao(ss, [], [], [], []);
       return 'Separação atualizada. Nenhum pedido na planilha.';
     }
 
-    var dados = buildDadosSeparacao(ss);
-    Logger.log('[Separacao] runAtualizarSeparacao: dados=' + !!dados + (dados ? ' linhasPorItem=' + dados.linhasPorItem.length + ' linhas=' + dados.linhas.length : ''));
-    if (!dados) {
-      Logger.log('[Separacao] runAtualizarSeparacao: dados null, chama criarOuLimparSeparacao vazio');
-      criarOuLimparSeparacao(ss, [], []);
-      return 'Separação atualizada.';
-    }
-    Logger.log('[Separacao] runAtualizarSeparacao: chamando criarOuLimparSeparacao');
-    criarOuLimparSeparacao(ss, dados.linhasPorItem, dados.linhas);
+    Logger.log('[Separacao] runAtualizarSeparacao: chamando rebuildAllSeparacaoSheets');
+    var res = rebuildAllSeparacaoSheets(ss);
     Logger.log('[Separacao] runAtualizarSeparacao: FIM OK');
-    return 'Separação atualizada. ' + dados.linhasPorItem.length + ' item(ns) na lista geral; ' + dados.linhas.length + ' linha(s) na separação por pedido.';
+    if (res) {
+      return 'Separação atualizada. Ativo: ' + (res.linhasPorItem ? res.linhasPorItem.length : 0) + ' item(ns), ' + (res.linhas ? res.linhas.length : 0) + ' linha(s). Separados: ' + (res.linhasSep ? res.linhasSep.length : 0) + ' linhas. Entregues: ' + (res.linhasEnt ? res.linhasEnt.length : 0) + ' linhas.';
+    }
+    return 'Separação atualizada.';
   } catch (e) {
     Logger.log('[Separacao] runAtualizarSeparacao: ERRO - ' + (e.message || e));
     var msg = e.message || String(e);
@@ -956,7 +1084,7 @@ var SEPARACAO_HEADERS_porPedido = [
   'item_id', 'item_nome', 'unidade', 'quantidade', 'valor_unit', 'total'
 ];
 
-function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido) {
+function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedidosSeparados, linhasPedidosEntregues) {
   if (!ss || typeof ss.getSheetByName !== 'function') {
     Logger.log('[Separacao] criarOuLimparSeparacao: ss invalido, tentando getSpreadsheet()');
     try {
@@ -973,7 +1101,30 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido) {
   Logger.log('[Separacao] criarOuLimparSeparacao: ss OK nome=' + ss.getName());
   linhasPorItem = linhasPorItem || [];
   linhasPorPedido = linhasPorPedido || [];
-  Logger.log('[Separacao] criarOuLimparSeparacao: linhasPorItem=' + linhasPorItem.length + ' linhasPorPedido=' + linhasPorPedido.length);
+  linhasPedidosSeparados = linhasPedidosSeparados || [];
+  linhasPedidosEntregues = linhasPedidosEntregues || [];
+  Logger.log('[Separacao] criarOuLimparSeparacao: linhasPorItem=' + linhasPorItem.length + ' linhasPorPedido=' + linhasPorPedido.length + ' separados=' + linhasPedidosSeparados.length + ' entregues=' + linhasPedidosEntregues.length);
+
+  function writeSheetPorPedido(sheet, linhas) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
+    sheet.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setFontWeight('bold');
+    if (linhas.length > 0) {
+      var rowsPorPedido = [];
+      var lastOrderId = null;
+      for (var i = 0; i < linhas.length; i++) {
+        var orderId = linhas[i][0];
+        if (lastOrderId !== null && orderId !== lastOrderId) {
+          rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
+        }
+        lastOrderId = orderId;
+        rowsPorPedido.push(linhas[i]);
+      }
+      if (rowsPorPedido.length > 0) {
+        sheet.getRange(2, 1, rowsPorPedido.length + 1, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
+      }
+    }
+  }
 
   try {
     var sheetGeral = ss.getSheetByName(SHEET_SEPARACAO);
@@ -982,31 +1133,23 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido) {
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
     if (linhasPorItem.length > 0) {
-      sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
+      sheetGeral.getRange(2, 1, linhasPorItem.length + 1, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
     }
     Logger.log('[Separacao] criarOuLimparSeparacao: aba Separacao OK');
 
     var sheetPorPedido = ss.getSheetByName(SHEET_SEPARACAO_POR_PEDIDO);
     if (!sheetPorPedido) sheetPorPedido = ss.insertSheet(SHEET_SEPARACAO_POR_PEDIDO);
-    sheetPorPedido.clear();
-    sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
-    sheetPorPedido.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setFontWeight('bold');
-    if (linhasPorPedido.length > 0) {
-      var rowsPorPedido = [];
-      var lastOrderId = null;
-      for (var i = 0; i < linhasPorPedido.length; i++) {
-        var orderId = linhasPorPedido[i][0];
-        if (lastOrderId !== null && orderId !== lastOrderId) {
-          rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
-        }
-        lastOrderId = orderId;
-        rowsPorPedido.push(linhasPorPedido[i]);
-      }
-      if (rowsPorPedido.length > 0) {
-        sheetPorPedido.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
-      }
-    }
-    Logger.log('[Separacao] criarOuLimparSeparacao: abas escritas com sucesso');
+    writeSheetPorPedido(sheetPorPedido, linhasPorPedido);
+
+    var sheetSeparados = ss.getSheetByName(SHEET_PEDIDOS_SEPARADOS);
+    if (!sheetSeparados) sheetSeparados = ss.insertSheet(SHEET_PEDIDOS_SEPARADOS);
+    writeSheetPorPedido(sheetSeparados, linhasPedidosSeparados);
+
+    var sheetEntregues = ss.getSheetByName(SHEET_PEDIDOS_ENTREGUES);
+    if (!sheetEntregues) sheetEntregues = ss.insertSheet(SHEET_PEDIDOS_ENTREGUES);
+    writeSheetPorPedido(sheetEntregues, linhasPedidosEntregues);
+
+    Logger.log('[Separacao] criarOuLimparSeparacao: 4 abas escritas com sucesso');
   } catch (err) {
     Logger.log('[Separacao] criarOuLimparSeparacao: ERRO ao escrever - ' + (err.message || err));
     throw err;

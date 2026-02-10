@@ -215,12 +215,19 @@
     lastMeusPedidosOrders = orders;
     orders.forEach(function (order) {
       var li = document.createElement('li');
-      var isCancelado = (order.status || '').toLowerCase() === 'cancelado';
+      var status = (order.status || '').toLowerCase();
+      var isCancelado = status === 'cancelado';
+      var isSeparado = status === 'separado';
+      var isEntregue = status === 'entregue';
+      var statusLabel = isCancelado ? 'Cancelado' : (isSeparado ? 'Separado' : (isEntregue ? 'Entregue' : ''));
       if (isCancelado) li.classList.add('cancelado');
+      if (isSeparado) li.classList.add('separado');
+      if (isEntregue) li.classList.add('entregue');
+      var showActions = !isCancelado && !isSeparado && !isEntregue;
       li.innerHTML =
-        '<div class="pedido-meta">' + esc(order.orderId) + ' · ' + esc(formatPedidoDate(order.timestamp)) + (isCancelado ? ' · <strong>Cancelado</strong>' : '') + '</div>' +
+        '<div class="pedido-meta">' + esc(order.orderId) + ' · ' + esc(formatPedidoDate(order.timestamp)) + (statusLabel ? ' · <strong>' + esc(statusLabel) + '</strong>' : '') + '</div>' +
         '<div class="pedido-itens">' + esc(formatPedidoItens(order.itens)) + '</div>' +
-        (isCancelado ? '' : '<div class="pedido-acoes"><button type="button" class="btn btn-secondary cc-btn-cancelar-pedido" data-order-id="' + esc(order.orderId) + '">Cancelar pedido</button><button type="button" class="btn btn-primary cc-btn-editar-pedido" data-order-index="' + esc(String(lastMeusPedidosOrders.indexOf(order))) + '">Editar</button></div>');
+        (showActions ? '<div class="pedido-acoes"><button type="button" class="btn btn-secondary cc-btn-cancelar-pedido" data-order-id="' + esc(order.orderId) + '">Cancelar pedido</button><button type="button" class="btn btn-primary cc-btn-editar-pedido" data-order-index="' + esc(String(lastMeusPedidosOrders.indexOf(order))) + '">Editar</button></div>' : '');
       listEl.appendChild(li);
     });
     listEl.querySelectorAll('.cc-btn-cancelar-pedido').forEach(function (btn) {

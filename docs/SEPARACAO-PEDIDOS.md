@@ -1,13 +1,28 @@
 # Separação de pedidos — abas em linhas
 
-Para facilitar a separação dos pedidos, o script gera duas abas que “explodem” o campo **itens** (JSON) em **uma linha por item**, com dados do pedido e do produto.
+Para facilitar a separação dos pedidos, o script gera **quatro abas** que “explodem” o campo **itens** (JSON) em **uma linha por item**, conforme o **status** do pedido (ativo, separado, entregue). Apenas pedidos **ativos** ficam nas abas de separação em andamento; ao marcar como **separado** ou **entregue** (na tela admin), o pedido sai dessas abas e passa para as abas de histórico.
+
+## Status do pedido
+
+Na aba **Orders** (coluna status) e na **tela admin** (botões por pedido):
+
+- **ativo** — pedido novo ou em aberto; aparece em **Separacao** e **Separacao por pedido**.
+- **separado** — admin marcou como “Separado”; o pedido sai da separação em andamento e entra na aba **Pedidos separados**.
+- **entregue** — admin marcou como “Entregue”; o pedido entra na aba **Pedidos entregues**.
+- **cancelado** — cliente ou admin cancelou; não entra em nenhuma aba de separação.
+
+O cliente vê o status ao consultar “Meus pedidos” (Ativo, Separado, Entregue, Cancelado).
 
 ## Abas geradas
 
-1. **Separacao** — **uma linha por item**: quantidades **somadas** de todos os pedidos ativos.  
-   Ex.: se 10 pedidos pedem “arroz”, aparece **uma linha** com arroz e a quantidade total. Serve para a operação separar tudo de uma vez (lista de compras consolidada).
+1. **Separacao** — **uma linha por item**: quantidades **somadas** só dos pedidos **ativos**.  
+   Ex.: se 10 pedidos ativos pedem “arroz”, aparece **uma linha** com arroz e a quantidade total. Serve para a operação separar tudo de uma vez (lista de compras consolidada).
 
-2. **Separacao por pedido** — **agrupado por pedido**: cada pedido com seus itens e dados do cliente; linha em branco entre pedidos. Serve para montar/entregar cada pedido.
+2. **Separacao por pedido** — **agrupado por pedido**: cada pedido **ativo** com seus itens e dados do cliente; linha em branco entre pedidos. Serve para montar cada pedido.
+
+3. **Pedidos separados** — mesmas colunas que “Separacao por pedido”, só com pedidos já marcados como **separado**.
+
+4. **Pedidos entregues** — mesmas colunas que “Separacao por pedido”, só com pedidos já marcados como **entregue**.
 
 (Nomes sem acento para evitar erro em alguns ambientes.)
 
@@ -39,9 +54,9 @@ Para facilitar a separação dos pedidos, o script gera duas abas que “explode
 | valor_unit  | Preço unitário                     |
 | total       | quantidade × valor_unit            |
 
-Pedidos com **status = cancelado** não entram.
+Pedidos **cancelados** não entram em nenhuma aba. Só pedidos **ativos** entram em Separacao e Separacao por pedido; **separado** e **entregue** têm abas próprias.
 
-**Atualização automática:** ao criar, cancelar ou editar um pedido (pelo site ou pela API), o script atualiza as abas **Separacao** e **Separacao por pedido** sozinho. Para isso funcionar quando o pedido vem do site (Web App), configure **SPREADSHEET_ID** nas Propriedades do projeto do Apps Script. Se não estiver configurado, as abas só mudam quando alguém rodar **Atualizar Separação** pelo menu da planilha.
+**Atualização automática:** ao criar, cancelar ou editar um pedido (pelo site ou pela API), ou ao mudar o status para **separado** ou **entregue** na tela admin, o script atualiza as **quatro abas** sozinho. Para isso funcionar quando o pedido vem do site (Web App), configure **SPREADSHEET_ID** nas Propriedades do projeto do Apps Script. Se não estiver configurado, as abas só mudam quando alguém rodar **Atualizar Separação** pelo menu da planilha.
 
 ## Como atualizar as abas
 
@@ -50,7 +65,7 @@ As abas **não** são atualizadas sozinhas. É preciso rodar a função que rege
 1. **Pelo menu (recomendado)**  
    - Abra a planilha no Google Sheets.  
    - No menu, deve aparecer **Compra Coletiva** → **Atualizar Separação (pedidos em linhas)**.  
-   - Clique uma vez. As abas **Separacao** e **Separacao por pedido** são criadas ou atualizadas.  
+   - Clique uma vez. As abas **Separacao**, **Separacao por pedido**, **Pedidos separados** e **Pedidos entregues** são criadas ou atualizadas.  
    - Se der “erro desconhecido” ao rodar pelo editor do Apps Script, rode **pela planilha** (menu acima); ou adicione **SPREADSHEET_ID** nas Propriedades do projeto.
 
 2. **Pelo Apps Script**  

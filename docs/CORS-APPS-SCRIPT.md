@@ -1,5 +1,9 @@
 # CORS e Google Apps Script
 
+**Guia rápido em 5 min:** use **docs/PROXY-CORS-PASSO-A-PASSO.md** para subir o proxy e o site funcionar.
+
+---
+
 ## O problema
 
 O site (GitHub Pages, ex.: `https://sraphaz.github.io/florestavital/`) chama o Google Apps Script (ex.: `https://script.google.com/macros/s/.../exec`) pelo navegador. O **Google Apps Script não permite definir** o cabeçalho `Access-Control-Allow-Origin` na resposta. Sem esse cabeçalho, o navegador **bloqueia** a resposta por política CORS e aparece um erro como:

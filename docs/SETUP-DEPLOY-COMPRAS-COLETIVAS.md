@@ -129,6 +129,26 @@ var COMPRAS_COLETIVAS_API = 'https://script.google.com/macros/s/SUA_ID_AQUI/exec
 
 ---
 
+## 9. Deploy final (após alterações no código)
+
+Sempre que houver mudanças no repositório ou no backend, faça:
+
+1. **Git (site + docs)**  
+   - Commit e push para o repositório (ex.: `main`).  
+   - Se o site estiver em GitHub Pages a partir dessa branch, o push já publica o site (HTML/JS/CSS).
+
+2. **Apps Script (backend)**  
+   - Abra a planilha → **Extensões** → **Apps Script**.  
+   - Substitua todo o conteúdo de `Code.gs` pelo conteúdo atual de **google-apps-script/Code.gs** do repositório.  
+   - Salve (Ctrl+S).  
+   - **Implantar** → **Gerenciar implantações** → no deployment existente, **Editar** (ícone de lápis) → **Versão** = **Nova versão** → **Implantar**.  
+   - A URL do Web app não muda; o site continua usando a mesma URL em **js/config.js**.
+
+3. **Opcional: proxy CORS**  
+   - Se você usa um Worker (Cloudflare) como proxy, não é preciso alterar nada no Worker ao atualizar o Apps Script; a variável `SCRIPT_URL` já aponta para a mesma URL.
+
+---
+
 ## Resumo rápido
 
 | O quê              | Onde |

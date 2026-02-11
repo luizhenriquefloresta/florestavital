@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Resumo do pedido - Compra Coletiva Floresta Vital">
+  <title>Resumo do pedido | Floresta Vital</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .cc-link { display: inline-block; font-size: 0.9rem; color: var(--sage); }
+    .cc-link:hover { color: var(--forest); }
+    .cc-card { max-width: 100%; }
+    .cc-step-title { font-size: 1.1rem; color: var(--forest); margin-bottom: var(--space-sm); }
+    .form-divider { margin: var(--space-lg) 0 var(--space-md); padding-top: var(--space-md); border-top: 1px solid rgba(45, 74, 62, 0.12); }
+    .form-divider h3 { font-size: 1.1rem; color: var(--forest); margin-bottom: var(--space-md); }
+    .form-group input { min-height: 44px; font-size: 16px; }
+    .form-msg { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); font-size: 0.95rem; }
+    .form-msg-success { background: rgba(107, 142, 106, 0.15); color: var(--forest); }
+    .form-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
+    .cc-btn { width: 100%; min-height: 48px; font-size: 1rem; margin-top: var(--space-sm); }
+    @media (min-width: 600px) { .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; } }
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="logo">Floresta <span>Vital</span></a>
+      <a href="compras-coletivas.html" class="cc-link" style="margin-left: auto;">← Voltar à Compra Coletiva</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="section" style="padding-top: calc(80px + var(--space-lg)); padding-bottom: var(--space-xl);">
+      <div class="container" style="max-width: 560px;">
+        <div class="card cc-card" data-reveal>
+          <h1 class="cc-step-title">Resumo do pedido</h1>
+          <p id="rpOrderMeta" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);"></p>
+          <div id="rpLoading" style="padding: var(--space-lg); text-align: center;">Carregando…</div>
+          <div id="rpError" class="form-msg form-msg-error" style="display: none;"></div>
+          <div id="rpContent" style="display: none;">
+            <div id="rpResumoItens" class="form-divider"></div>
+            <div class="form-divider">
+              <h3>Entrega ou retirada</h3>
+              <div class="form-group">
+                <label><input type="radio" name="rpEntrega" id="rpRetirada" value="retirada" checked> Retirada (sem frete)</label>
+              </div>
+              <div class="form-group" id="rpRegiaoWrap">
+                <label><input type="radio" name="rpEntrega" id="rpEntregaRegiao" value="regiao"> Entrega por região</label>
+                <select id="rpSelectRegiao" class="form-group" style="margin-top: var(--space-sm); display: none;" aria-label="Região de entrega">
+                  <option value="">— Selecione a região —</option>
+                </select>
+              </div>
+              <p id="rpFreteValor" style="font-size: 0.95rem; color: var(--forest); margin-top: var(--space-sm);"></p>
+            </div>
+            <div class="form-divider">
+              <h3>Contribuição voluntária (%)</h3>
+              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Sugestões:</p>
+              <div id="rpContribSugestoes" style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-sm);"></div>
+              <div class="form-group">
+                <label for="rpContribInput">Ou informe um valor (%):</label>
+                <input type="number" id="rpContribInput" min="0" step="0.5" value="0" style="max-width: 100px;" aria-label="Contribuição percentual">
+              </div>
+            </div>
+            <div id="rpResumoTotais" class="form-divider" style="font-size: 1rem;"></div>
+            <button type="button" class="btn btn-primary cc-btn" id="rpBtnIrPagamento">Ir para pagamento</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p style="text-align: center; font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital</p>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/resumo-pedido.js"></script>
+  <script src="js/theme.js"></script>
+</body>
+</html>

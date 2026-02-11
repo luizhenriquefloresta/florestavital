@@ -74,6 +74,14 @@ function doGet(e) {
     var tel = (params.telefone || '').toString().trim();
     return getMyOrders(tel);
   }
+  if (action === 'order') {
+    var orderId = (params.orderId || '').toString().trim();
+    var tel = (params.telefone || '').toString().trim();
+    if (!orderId || tel.length < 10) {
+      return jsonResponse({ ok: false, error: 'orderId e telefone são obrigatórios' }, 400);
+    }
+    return getOrderSingle(orderId, tel);
+  }
   if (action === 'updateOrderStatus' || (action && action.toLowerCase() === 'updateorderstatus')) {
     var t = params.token || '';
     if (!isAdminTokenValid(t)) {
@@ -146,6 +154,9 @@ function doPost(e) {
   }
   if (data.action === 'updateOrder') {
     return postUpdateOrder(data);
+  }
+  if (data.action === 'updateOrderTotals') {
+    return postUpdateOrderTotals(data);
   }
   if (data.action === 'updateOrderStatus') {
     if (!isAdminTokenValid(token)) {
@@ -931,6 +942,48 @@ function getMyOrders(telefoneParam) {
 }
 
 /**
+ * GET ?action=order&orderId=XXX&telefone=YYY
+ * Retorna um único pedido com todos os campos (regiao, valorFrete, etc).
+ */
+function getOrderSingle(orderId, telefoneParam) {
+  var telefone = normalizePhone(telefoneParam);
+  if (telefone.length < 10) {
+    return jsonResponse({ ok: false, error: 'Telefone inválido' }, 400);
+  }
+  var sheet = getSheet(SHEET_ORDERS);
+  if (!sheet) return jsonResponse({ ok: false, error: 'Planilha não configurada' }, 500);
+  var rowNum = findOrderRow(sheet, orderId);
+  if (rowNum === 0) {
+    return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+  }
+  var rowTel = normalizePhone(String(sheet.getRange(rowNum, 5).getValue() || ''));
+  if (!phonesMatch(rowTel, telefone)) {
+    return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
+  }
+  var numCols = Math.max(15, sheet.getLastColumn());
+  var row = sheet.getRange(rowNum, 1, rowNum, numCols).getValues()[0];
+  var status = row[8] !== undefined && row[8] !== null && String(row[8]).trim() !== '' ? String(row[8]).trim().toLowerCase() : 'ativo';
+  var order = {
+    orderId: String(row[0] || ''),
+    timestamp: String(row[1] || ''),
+    nome: String(row[2] || ''),
+    email: String(row[3] || ''),
+    telefone: String(row[4] || ''),
+    bairro: String(row[5] || ''),
+    observacoes: String(row[6] || ''),
+    itens: String(row[7] || '{}'),
+    status: status,
+    regiao: String(row[9] || ''),
+    valorFrete: parseFloat(row[10]) || 0,
+    custoAdminValor: parseFloat(row[11]) || 0,
+    contribuicaoVoluntaria: parseFloat(row[12]) || 0,
+    subtotalItens: parseFloat(row[13]) || 0,
+    total: parseFloat(row[14]) || 0
+  };
+  return jsonResponse({ ok: true, order: order });
+}
+
+/**
  * Retorna o número da linha (1-based) do pedido ou 0 se não existir.
  */
 function findOrderRow(sheet, orderId) {
@@ -1104,6 +1157,39 @@ function postUpdateOrder(data) {
     if (ss) rebuildAllSeparacaoSheets(ss);
   } catch (e) {}
   return jsonResponse({ ok: true, message: 'Pedido atualizado' });
+}
+
+/**
+ * POST { action: 'updateOrderTotals', orderId, telefone, regiao?, valorFrete?, custoAdminValor?, contribuicaoVoluntaria?, subtotalItens?, total? }
+ * Atualiza regiao, frete, contribuição e total do pedido (para fluxo resumo→pagamento).
+ */
+function postUpdateOrderTotals(data) {
+  if (data.action !== 'updateOrderTotals') {
+    return jsonResponse({ ok: false, error: 'action must be updateOrderTotals' }, 400);
+  }
+  var orderId = (data.orderId || '').toString().trim();
+  var telefone = normalizePhone((data.telefone || '').toString());
+  if (!orderId || telefone.length < 10) {
+    return jsonResponse({ ok: false, error: 'orderId e telefone são obrigatórios' }, 400);
+  }
+  var sheetOrders = getSheet(SHEET_ORDERS);
+  if (!sheetOrders) return jsonResponse({ ok: false, error: 'Planilha não configurada' }, 500);
+  var rowNum = findOrderRow(sheetOrders, orderId);
+  if (rowNum === 0) return jsonResponse({ ok: false, error: 'Pedido não encontrado' }, 404);
+  var rowTel = normalizePhone(String(sheetOrders.getRange(rowNum, 5).getValue() || ''));
+  if (!phonesMatch(rowTel, telefone)) {
+    return jsonResponse({ ok: false, error: 'Este pedido não é seu' }, 403);
+  }
+  if (String(sheetOrders.getRange(rowNum, 9).getValue() || '').trim().toLowerCase() === 'cancelado') {
+    return jsonResponse({ ok: false, error: 'Não é possível atualizar pedido cancelado' }, 400);
+  }
+  if (data.regiao !== undefined) sheetOrders.getRange(rowNum, 10).setValue(String(data.regiao || '').trim());
+  if (data.valorFrete !== undefined) sheetOrders.getRange(rowNum, 11).setValue(parseFloat(data.valorFrete) || 0);
+  if (data.custoAdminValor !== undefined) sheetOrders.getRange(rowNum, 12).setValue(parseFloat(data.custoAdminValor) || 0);
+  if (data.contribuicaoVoluntaria !== undefined) sheetOrders.getRange(rowNum, 13).setValue(parseFloat(data.contribuicaoVoluntaria) || 0);
+  if (data.subtotalItens !== undefined) sheetOrders.getRange(rowNum, 14).setValue(parseFloat(data.subtotalItens) || 0);
+  if (data.total !== undefined) sheetOrders.getRange(rowNum, 15).setValue(parseFloat(data.total) || 0);
+  return jsonResponse({ ok: true, message: 'Totais atualizados' });
 }
 
 /**

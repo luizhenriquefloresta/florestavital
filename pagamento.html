@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Pagamento - Compra Coletiva Floresta Vital">
+  <title>Pagamento | Floresta Vital</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .cc-link { display: inline-block; font-size: 0.9rem; color: var(--sage); }
+    .cc-link:hover { color: var(--forest); }
+    .cc-card { max-width: 100%; }
+    .cc-step-title { font-size: 1.1rem; color: var(--forest); margin-bottom: var(--space-sm); }
+    .form-divider { margin: var(--space-lg) 0 var(--space-md); padding-top: var(--space-md); border-top: 1px solid rgba(45, 74, 62, 0.12); }
+    .form-msg { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); font-size: 0.95rem; }
+    .form-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
+    @media (min-width: 600px) { .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; } }
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="logo">Floresta <span>Vital</span></a>
+      <a href="compras-coletivas.html" class="cc-link" style="margin-left: auto;">← Voltar à Compra Coletiva</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="section" style="padding-top: calc(80px + var(--space-lg)); padding-bottom: var(--space-xl);">
+      <div class="container" style="max-width: 560px;">
+        <div class="card cc-card" data-reveal>
+          <h1 class="cc-step-title">Pagamento</h1>
+          <div id="pgLoading" style="padding: var(--space-lg); text-align: center;">Carregando...</div>
+          <div id="pgError" class="form-msg form-msg-error" style="display: none;"></div>
+          <div id="pgContent" style="display: none;">
+            <p id="pgOrderId" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);"></p>
+            <p id="pgTotal" style="font-size: 1.25rem; color: var(--forest); font-weight: 600; margin-bottom: var(--space-md);"></p>
+            <p style="font-size: 0.95rem; color: var(--text-soft); margin-bottom: var(--space-md);">
+              Seu pedido já foi registrado. Entraremos em contato para combinar a forma de pagamento (PIX, transferência, etc.).
+            </p>
+            <div id="pgOpcoes" class="form-divider">
+              <p style="font-size: 0.9rem;">PIX: desconto conforme instituição. Outras opções em breve.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p style="text-align: center; font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital</p>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/pagamento.js"></script>
+  <script src="js/theme.js"></script>
+</body>
+</html>

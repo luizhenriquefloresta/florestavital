@@ -169,11 +169,9 @@
               <span><strong id="ccUserName"></strong> · <span id="ccUserPhone"></span></span>
               <a href="#" id="ccSair" class="cc-link">Sair</a>
             </div>
-            <div class="cc-tabs" role="tablist" aria-label="Fazer pedido, meus pedidos, resumo ou pagamento">
+            <div class="cc-tabs" role="tablist" aria-label="Fazer pedido ou meus pedidos">
               <button type="button" class="cc-tab active" role="tab" aria-selected="true" data-cc-tab="fazer">Fazer pedido</button>
               <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="meus">Meus pedidos</button>
-              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="resumo">Resumo</button>
-              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="pagamento">Pagamento</button>
             </div>
             <div id="ccTabFazer" class="cc-tab-panel active" role="tabpanel">
             <form id="formCompraColetiva" novalidate>
@@ -215,53 +213,7 @@
                 <ul id="ccMeusPedidosLista" class="cc-pedidos-lista" aria-label="Lista de pedidos"></ul>
               </div>
             </div>
-
-            <div id="ccTabResumo" class="cc-tab-panel" role="tabpanel">
-            <h2 class="cc-step-title">Resumo do pedido</h2>
-            <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Confira os itens, escolha entrega ou retirada e a contribuição voluntária.</p>
-            <div id="ccResumoItens" class="form-divider"></div>
-            <div class="form-divider">
-              <h3>Entrega ou retirada</h3>
-              <div class="form-group">
-                <label><input type="radio" name="ccEntrega" id="ccRetirada" value="retirada" checked> Retirada (sem frete)</label>
-              </div>
-              <div class="form-group" id="ccRegiaoWrap">
-                <label><input type="radio" name="ccEntrega" id="ccEntregaRegiao" value="regiao"> Entrega por região</label>
-                <select id="ccSelectRegiao" class="cc-select form-group" style="margin-top: var(--space-sm); display: none;" aria-label="Região de entrega">
-                  <option value="">— Selecione a região —</option>
-                </select>
-              </div>
-              <p id="ccFreteValor" style="font-size: 0.95rem; color: var(--forest); margin-top: var(--space-sm);"></p>
-            </div>
-            <div class="form-divider">
-              <h3>Contribuição voluntária (%)</h3>
-              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Sugestões:</p>
-              <div id="ccContribSugestoes" style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-sm);"></div>
-              <div class="form-group">
-                <label for="ccContribInput">Ou informe um valor (%):</label>
-                <input type="number" id="ccContribInput" min="0" step="0.5" value="0" style="max-width: 100px;" aria-label="Contribuição percentual">
-              </div>
-            </div>
-            <div id="ccResumoTotais" class="form-divider" style="font-size: 1rem;"></div>
-            <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary" id="ccBtnVoltarCesta">Voltar à cesta</button>
-              <button type="button" class="btn btn-primary cc-btn" id="ccBtnIrPagamento">Ir para pagamento</button>
-            </div>
-            </div>
-
-            <div id="ccTabPagamento" class="cc-tab-panel" role="tabpanel">
-            <h2 class="cc-step-title">Pagamento</h2>
-            <p id="ccPagamentoTotal" style="font-size: 1.1rem; color: var(--forest); font-weight: 600; margin-bottom: var(--space-md);"></p>
-            <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Após confirmar, você verá as instruções para pagamento (PIX com desconto ou outras formas).</p>
-            <div id="ccPagamentoOpcoes" class="form-divider">
-              <p style="font-size: 0.9rem;">PIX: desconto conforme instituição de pagamento. Outras opções em breve.</p>
-            </div>
-            <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary" id="ccBtnVoltarResumo">Voltar ao resumo</button>
-              <button type="button" class="btn btn-primary cc-btn" id="ccBtnConfirmarPedido">Confirmar pedido</button>
-            </div>
-            </div>
-            </div>
+          </div>
           </div>
         </div>
         <!-- Modal editar pedido -->

@@ -1104,9 +1104,11 @@ function buildDadosSeparacao(ss) {
   }
 
   var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
-  var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
+  var numRowsOrder = Math.max(0, lastOrder - 1);
+  var orderData = numRowsOrder > 0 ? sheetOrders.getRange(2, 1, numRowsOrder, numColsOrder).getValues() : [];
   var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
-  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
+  var numRowsItem = lastItem >= 2 ? Math.max(0, lastItem - 1) : 0;
+  var itemData = numRowsItem > 0 ? sheetItems.getRange(2, 1, numRowsItem, numColsItem).getValues() : [];
   Logger.log('[Separacao] buildDadosSeparacao: TODOS os pedidos da planilha orderData.rows=' + orderData.length + ' itemData.rows=' + itemData.length);
   var idToNome = {};
   var idToUnidade = {};
@@ -1195,9 +1197,11 @@ function buildDadosLinhasPorStatus(ss, statusFilter) {
   if (lastOrder < 2) return { linhas: [] };
 
   var numColsOrder = Math.max(9, sheetOrders.getLastColumn());
-  var orderData = sheetOrders.getRange(2, 1, lastOrder, numColsOrder).getValues();
+  var numRowsOrder = Math.max(0, lastOrder - 1);
+  var orderData = numRowsOrder > 0 ? sheetOrders.getRange(2, 1, numRowsOrder, numColsOrder).getValues() : [];
   var numColsItem = Math.min(8, Math.max(6, sheetItems.getLastColumn()));
-  var itemData = lastItem >= 2 ? sheetItems.getRange(2, 1, lastItem, numColsItem).getValues() : [];
+  var numRowsItem = lastItem >= 2 ? Math.max(0, lastItem - 1) : 0;
+  var itemData = numRowsItem > 0 ? sheetItems.getRange(2, 1, numRowsItem, numColsItem).getValues() : [];
   var idToNome = {};
   var idToUnidade = {};
   var idToPreco = {};
@@ -1374,6 +1378,11 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedido
   linhasPedidosEntregues = linhasPedidosEntregues || [];
   Logger.log('[Separacao] criarOuLimparSeparacao: linhasPorItem=' + linhasPorItem.length + ' linhasPorPedido=' + linhasPorPedido.length + ' separados=' + linhasPedidosSeparados.length + ' entregues=' + linhasPedidosEntregues.length);
 
+  function safeCell(val) {
+    if (val === undefined || val === null) return '';
+    if (typeof val === 'number' && isNaN(val)) return 0;
+    return val;
+  }
   function writeSheetPorPedido(sheet, linhas) {
     sheet.clear();
     sheet.getRange(1, 1, 1, SEPARACAO_HEADERS_porPedido.length).setValues([SEPARACAO_HEADERS_porPedido]);
@@ -1387,7 +1396,11 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedido
           rowsPorPedido.push(['', '', '', '', '', '', '', '', '', '', '', '']);
         }
         lastOrderId = orderId;
-        rowsPorPedido.push(linhas[i]);
+        var row = linhas[i];
+        rowsPorPedido.push([
+          safeCell(row[0]), safeCell(row[1]), safeCell(row[2]), safeCell(row[3]), safeCell(row[4]), safeCell(row[5]),
+          safeCell(row[6]), safeCell(row[7]), safeCell(row[8]), safeCell(row[9]), safeCell(row[10]), safeCell(row[11])
+        ]);
       }
       if (rowsPorPedido.length > 0) {
         sheet.getRange(2, 1, rowsPorPedido.length, SEPARACAO_HEADERS_porPedido.length).setValues(rowsPorPedido);
@@ -1402,7 +1415,14 @@ function criarOuLimparSeparacao(ss, linhasPorItem, linhasPorPedido, linhasPedido
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setValues([SEPARACAO_HEADERS_porItem]);
     sheetGeral.getRange(1, 1, 1, SEPARACAO_HEADERS_porItem.length).setFontWeight('bold');
     if (linhasPorItem.length > 0) {
-      sheetGeral.getRange(2, 1, linhasPorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(linhasPorItem);
+      var safePorItem = [];
+      for (var i = 0; i < linhasPorItem.length; i++) {
+        var r = linhasPorItem[i];
+        safePorItem.push([
+          safeCell(r[0]), safeCell(r[1]), safeCell(r[2]), safeCell(r[3]), safeCell(r[4]), safeCell(r[5])
+        ]);
+      }
+      sheetGeral.getRange(2, 1, safePorItem.length, SEPARACAO_HEADERS_porItem.length).setValues(safePorItem);
     }
     Logger.log('[Separacao] criarOuLimparSeparacao: aba Separacao OK');
 

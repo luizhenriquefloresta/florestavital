@@ -1141,7 +1141,7 @@ function buildDadosSeparacao(ss) {
       itensObj = {};
     }
     for (var itemId in itensObj) {
-      if (!itensObj.hasOwnProperty(itemId)) continue;
+      if (!Object.prototype.hasOwnProperty.call(itensObj, itemId)) continue;
       var qty = parseInt(itensObj[itemId], 10) || 0;
       if (qty <= 0) continue;
       var precoUn = idToPreco[itemId] != null ? idToPreco[itemId] : 0;
@@ -1169,7 +1169,7 @@ function buildDadosSeparacao(ss) {
 
   var linhasPorItem = [];
   for (var itemId in agregadoPorItem) {
-    if (!agregadoPorItem.hasOwnProperty(itemId)) continue;
+    if (!Object.prototype.hasOwnProperty.call(agregadoPorItem, itemId)) continue;
     var a = agregadoPorItem[itemId];
     linhasPorItem.push([itemId, a.nome, a.unidade, a.qty, a.preco, a.qty * a.preco]);
   }
@@ -1228,7 +1228,7 @@ function buildDadosLinhasPorStatus(ss, statusFilter) {
       itensObj = {};
     }
     for (var itemId in itensObj) {
-      if (!itensObj.hasOwnProperty(itemId)) continue;
+      if (!Object.prototype.hasOwnProperty.call(itensObj, itemId)) continue;
       var qty = parseInt(itensObj[itemId], 10) || 0;
       if (qty <= 0) continue;
       var precoUn = idToPreco[itemId] != null ? idToPreco[itemId] : 0;
@@ -1253,6 +1253,27 @@ function buildDadosLinhasPorStatus(ss, statusFilter) {
 }
 
 /**
+ * Garante que a aba Orders tem coluna 9 (status). Chamado antes de construir separação.
+ */
+function garantirColunaStatusSeNecessario(ss) {
+  if (!ss || typeof ss.getSheetByName !== 'function') return;
+  var sheet = ss.getSheetByName(SHEET_ORDERS);
+  if (!sheet) return;
+  if (sheet.getLastColumn() < 9) {
+    sheet.getRange(1, 9).setValue('status');
+    sheet.getRange(1, 9).setFontWeight('bold');
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  for (var r = 2; r <= lastRow; r++) {
+    var val = sheet.getRange(r, 9).getValue();
+    if (val === undefined || val === null || String(val).trim() === '') {
+      sheet.getRange(r, 9).setValue('ativo');
+    }
+  }
+}
+
+/**
  * Reconstrói as 4 abas de separação: Separacao, Separacao por pedido (só ativo), Pedidos separados, Pedidos entregues.
  * Retorna { linhasPorItem, linhas, linhasSep, linhasEnt } (contagens) ou null em caso de falha.
  */
@@ -1265,12 +1286,22 @@ function rebuildAllSeparacaoSheets(ss) {
       return null;
     }
   }
+  try {
+    garantirColunaStatusSeNecessario(ss);
+  } catch (e) {
+    Logger.log('[Separacao] rebuildAllSeparacaoSheets: garantirColunaStatus - ' + (e.message || e));
+  }
   var dados = buildDadosSeparacao(ss);
   var linhasPorItem = (dados && dados.linhasPorItem) ? dados.linhasPorItem : [];
   var linhas = (dados && dados.linhas) ? dados.linhas : [];
   var sep = buildDadosLinhasPorStatus(ss, 'separado');
   var ent = buildDadosLinhasPorStatus(ss, 'entregue');
-  criarOuLimparSeparacao(ss, linhasPorItem, linhas, sep.linhas || [], ent.linhas || []);
+  try {
+    criarOuLimparSeparacao(ss, linhasPorItem, linhas, sep.linhas || [], ent.linhas || []);
+  } catch (err) {
+    Logger.log('[Separacao] rebuildAllSeparacaoSheets: criarOuLimparSeparacao ERRO - ' + (err.message || err));
+    throw err;
+  }
   return { linhasPorItem: linhasPorItem, linhas: linhas, linhasSep: sep.linhas || [], linhasEnt: ent.linhas || [] };
 }
 

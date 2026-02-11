@@ -62,7 +62,9 @@ Pedidos **cancelados** não entram em nenhuma aba. Só pedidos **ativos** entram
 
 ## Como atualizar as abas
 
-As abas **não** são atualizadas sozinhas. É preciso rodar a função que regera as duas abas:
+O script **garante automaticamente** a coluna **status** na aba Orders antes de montar a separação (se faltar, cria e preenche "ativo"). Assim, Separacao e Separacao por pedido passam a considerar só pedidos com status **ativo**.
+
+Para regerar as abas:
 
 1. **Pelo menu (recomendado)**  
    - Abra a planilha no Google Sheets.  

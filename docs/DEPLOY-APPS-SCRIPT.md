@@ -39,12 +39,15 @@ Abra o link no navegador, autorize com a conta que usa no Apps Script. Isso gera
 No repositório do GitHub:
 
 1. **Settings** → **Secrets and variables** → **Actions**.
-2. **New repository secret** para cada um:
+2. Use **Secrets** (não "Variables"): clique em **Secrets** (aba ou seção) → **New repository secret**.
+3. Crie um secret para cada um:
 
 | Nome do secret   | Valor |
 |------------------|--------|
 | `CLASP_SCRIPT_ID` | O Script ID do passo 3 (só o ID, sem aspas). |
 | `CLASPRC_JSON`   | O **conteúdo completo** do arquivo `.clasprc.json` (o que foi gerado no passo 2). Copie e cole todo o JSON. |
+
+**Importante:** tem que ser **Secret**, não **Variable**. Em "Secrets and variables" → **Actions**, use a parte **Secrets** e "New repository secret". Se você criou como Variable, apague e crie de novo como Secret.
 
 Para copiar o conteúdo do `.clasprc.json`:
 

@@ -29,7 +29,7 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
           if [ -z "$CLASPRC_JSON" ]; then
-            echo "::error::Secret CLASPRC_JSON não configurado. Veja docs/DEPLOY-APPS-SCRIPT.md"
+            echo "::error::CLASPRC_JSON não configurado. Use Settings → Secrets and variables → Actions → **Secrets** (não Variables) → New repository secret. Veja docs/DEPLOY-APPS-SCRIPT.md"
             exit 1
           fi
           echo "$CLASPRC_JSON" > "$HOME/.clasprc.json"
@@ -39,7 +39,7 @@ jobs:
           CLASP_SCRIPT_ID: ${{ secrets.CLASP_SCRIPT_ID }}
         run: |
           if [ -z "$CLASP_SCRIPT_ID" ]; then
-            echo "::error::Secret CLASP_SCRIPT_ID não configurado. Veja docs/DEPLOY-APPS-SCRIPT.md"
+            echo "::error::CLASP_SCRIPT_ID não configurado. Use Secrets (não Variables). Veja docs/DEPLOY-APPS-SCRIPT.md"
             exit 1
           fi
           echo "{\"scriptId\":\"$CLASP_SCRIPT_ID\",\"rootDir\":\"google-apps-script\"}" > .clasp.json

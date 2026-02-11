@@ -51,13 +51,16 @@ function doGet(e) {
     }
     return jsonResponse({ ok: false, error: 'Invalid token' }, 401);
   }
-  if (action === 'saveBackup' || action === 'listBackups') {
+  var actionNorm = (action || '').toLowerCase().replace(/\s+/g, '');
+  var isSaveBackup = actionNorm === 'savebackup' || actionNorm === 'salvarbackup';
+  var isListBackups = actionNorm === 'listbackups' || actionNorm === 'listadebackups';
+  if (isSaveBackup || isListBackups) {
     var t = params.token || '';
     if (!isAdminTokenValid(t)) {
       return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
     }
-    if (action === 'saveBackup') return getSaveBackup();
-    if (action === 'listBackups') return getListBackups();
+    if (isSaveBackup) return getSaveBackup();
+    if (isListBackups) return getListBackups();
   }
   if (action === 'myOrders') {
     var tel = (params.telefone || '').toString().trim();

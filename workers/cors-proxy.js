@@ -37,7 +37,11 @@ export default {
       }
 
       const url = new URL(request.url);
-      const targetUrl = scriptUrl.replace(/\/$/, '') + (url.search || '');
+      const base = scriptUrl.replace(/\/$/, '');
+      const hasParams = url.search && url.search.length > 1;
+      const targetUrl = hasParams
+        ? (base.includes('?') ? base + '&' + url.search.slice(1) : base + url.search)
+        : base;
 
       const init = {
         method: request.method,

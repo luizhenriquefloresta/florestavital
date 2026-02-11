@@ -11,6 +11,8 @@
   var stepProfile = document.getElementById('ccStepProfile');
   var stepVerify = document.getElementById('ccStepVerify');
   var stepOrder = document.getElementById('ccStepOrder');
+  var stepResumo = document.getElementById('ccStepResumo');
+  var stepPagamento = document.getElementById('ccStepPagamento');
   var formPhone = document.getElementById('formPhone');
   var formProfile = document.getElementById('formProfile');
   var formOrder = document.getElementById('formCompraColetiva');
@@ -23,6 +25,11 @@
   var ccSair = document.getElementById('ccSair');
   var catalogItems = [];
   var lastMeusPedidosOrders = [];
+  var pendingOrder = null;
+  var orderConfig = { custoAdministrativoPercentual: 0, contribuicaoSugerida: [0, 2, 5] };
+  var regioes = [];
+  var resumoTotals = { subtotalItens: 0, valorFrete: 0, custoAdminValor: 0, contribuicaoVoluntaria: 0, total: 0 };
+  var resumoStepBound = false;
 
   function esc(s) {
     if (s == null) return '';
@@ -67,6 +74,8 @@
     if (stepProfile) stepProfile.classList.remove('active');
     if (stepVerify) stepVerify.classList.remove('active');
     if (stepOrder) stepOrder.classList.remove('active');
+    if (stepResumo) stepResumo.classList.remove('active');
+    if (stepPagamento) stepPagamento.classList.remove('active');
     if (step === 'phone' && stepPhone) stepPhone.classList.add('active');
     if (step === 'profile' && stepProfile) stepProfile.classList.add('active');
     if (step === 'verify' && stepVerify) {
@@ -78,6 +87,15 @@
       fillOrderFromUser();
       if (containerItens) loadItens();
       loadMeusPedidos();
+      loadRegioesAndConfig();
+    }
+    if (step === 'resumo' && stepResumo) {
+      stepResumo.classList.add('active');
+      setupResumoStep();
+    }
+    if (step === 'pagamento' && stepPagamento) {
+      stepPagamento.classList.add('active');
+      setupPagamentoStep();
     }
   }
 
@@ -121,6 +139,174 @@
     var nameEl = document.getElementById('ccUserName');
     if (phoneEl) phoneEl.textContent = formatPhone(u.telefone);
     if (nameEl) nameEl.textContent = u.nome || '';
+  }
+
+  function loadRegioesAndConfig() {
+    fetch(apiBase + '?action=regioes')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.regioes) regioes = data.regioes;
+      })
+      .catch(function () {});
+    fetch(apiBase + '?action=orderConfig')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          orderConfig = {
+            custoAdministrativoPercentual: data.custoAdministrativoPercentual || 0,
+            contribuicaoSugerida: Array.isArray(data.contribuicaoSugerida) ? data.contribuicaoSugerida : [0, 2, 5]
+          };
+        }
+      })
+      .catch(function () {});
+  }
+
+  function setupResumoStep() {
+    if (!pendingOrder || !pendingOrder.itens) return;
+    var elItens = document.getElementById('ccResumoItens');
+    var elRegiao = document.getElementById('ccSelectRegiao');
+    var elFrete = document.getElementById('ccFreteValor');
+    var elSugestoes = document.getElementById('ccContribSugestoes');
+    var elContrib = document.getElementById('ccContribInput');
+    var elTotais = document.getElementById('ccResumoTotais');
+    if (!elItens) return;
+
+    var subtotal = 0;
+    var html = '<h3>Itens</h3><ul style="list-style:none; padding:0; margin:0;">';
+    for (var id in pendingOrder.itens) {
+      if (!Object.prototype.hasOwnProperty.call(pendingOrder.itens, id)) continue;
+      var qty = parseInt(pendingOrder.itens[id], 10) || 0;
+      if (qty <= 0) continue;
+      var item = catalogItems.filter(function (i) { return i.id === id; })[0];
+      var preco = item ? (parseFloat(item.preco) || 0) : 0;
+      var nome = item ? (item.nome || id) : id;
+      var linha = preco * qty;
+      subtotal += linha;
+      html += '<li style="padding: var(--space-xs) 0;">' + esc(nome) + ' × ' + qty + ' — R$ ' + linha.toFixed(2).replace('.', ',') + '</li>';
+    }
+    html += '</ul><p style="margin-top: var(--space-sm); font-weight: 600;">Subtotal itens: R$ ' + subtotal.toFixed(2).replace('.', ',') + '</p>';
+    elItens.innerHTML = html;
+    resumoTotals.subtotalItens = subtotal;
+
+    if (elRegiao) {
+      elRegiao.innerHTML = '<option value="">— Selecione a região —</option>';
+      regioes.forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = r.regiao;
+        opt.setAttribute('data-frete', String(r.frete || 0));
+        opt.textContent = r.regiao + ' — R$ ' + (parseFloat(r.frete) || 0).toFixed(2).replace('.', ',');
+        elRegiao.appendChild(opt);
+      });
+    }
+
+    var retirada = document.getElementById('ccRetirada');
+    var entregaRegiao = document.getElementById('ccEntregaRegiao');
+    if (retirada) retirada.checked = true;
+    if (elRegiao) elRegiao.style.display = 'none';
+    if (elFrete) elFrete.textContent = 'Retirada: sem frete.';
+
+    function updateEntregaDisplay() {
+      var isRetirada = retirada && retirada.checked;
+      if (elRegiao) elRegiao.style.display = isRetirada ? 'none' : 'block';
+      if (elRegiao && !isRetirada && elRegiao.value) {
+        var opt = elRegiao.options[elRegiao.selectedIndex];
+        var f = parseFloat(opt && opt.getAttribute('data-frete')) || 0;
+        resumoTotals.valorFrete = f;
+        if (elFrete) elFrete.textContent = 'Frete: R$ ' + f.toFixed(2).replace('.', ',');
+      } else {
+        resumoTotals.valorFrete = 0;
+        if (elFrete) elFrete.textContent = isRetirada ? 'Retirada: sem frete.' : 'Selecione a região.';
+      }
+      updateResumoTotais();
+    }
+    function updateResumoTotais() {
+      var contribPct = parseFloat(elContrib && elContrib.value) || 0;
+      resumoTotals.custoAdminValor = resumoTotals.subtotalItens * (orderConfig.custoAdministrativoPercentual || 0) / 100;
+      resumoTotals.contribuicaoVoluntaria = resumoTotals.subtotalItens * contribPct / 100;
+      resumoTotals.total = resumoTotals.subtotalItens + resumoTotals.valorFrete + resumoTotals.custoAdminValor + resumoTotals.contribuicaoVoluntaria;
+      if (elTotais) {
+        elTotais.innerHTML =
+          '<p><strong>Custo administrativo (' + (orderConfig.custoAdministrativoPercentual || 0) + '%):</strong> R$ ' + resumoTotals.custoAdminValor.toFixed(2).replace('.', ',') + '</p>' +
+          '<p><strong>Contribuição voluntária:</strong> R$ ' + resumoTotals.contribuicaoVoluntaria.toFixed(2).replace('.', ',') + '</p>' +
+          '<p style="font-size: 1.1rem;"><strong>Total: R$ ' + resumoTotals.total.toFixed(2).replace('.', ',') + '</strong></p>';
+      }
+    }
+    if (!resumoStepBound) {
+      resumoStepBound = true;
+      if (retirada) retirada.addEventListener('change', updateEntregaDisplay);
+      if (entregaRegiao) entregaRegiao.addEventListener('change', updateEntregaDisplay);
+      if (elRegiao) elRegiao.addEventListener('change', updateEntregaDisplay);
+      if (elContrib) elContrib.addEventListener('input', updateResumoTotais);
+    }
+
+    if (elSugestoes) {
+      elSugestoes.innerHTML = '';
+      (orderConfig.contribuicaoSugerida || [0, 2, 5]).forEach(function (pct) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-secondary btn-sm';
+        btn.textContent = pct + '%';
+        btn.addEventListener('click', function () {
+          if (elContrib) elContrib.value = pct;
+          updateResumoTotais();
+        });
+        elSugestoes.appendChild(btn);
+      });
+    }
+    if (elContrib) elContrib.value = 0;
+    updateResumoTotais();
+  }
+
+  function setupPagamentoStep() {
+    var elTotal = document.getElementById('ccPagamentoTotal');
+    if (elTotal) elTotal.textContent = 'Total do pedido: R$ ' + (resumoTotals.total || 0).toFixed(2).replace('.', ',');
+  }
+
+  function confirmarPedido() {
+    var u = getUser();
+    if (!u || !pendingOrder) return;
+    var btn = document.getElementById('ccBtnConfirmarPedido');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'order',
+        nome: pendingOrder.nome,
+        telefone: u.telefone,
+        email: pendingOrder.email || '',
+        bairro: pendingOrder.bairro || '',
+        observacoes: pendingOrder.obs || '',
+        itens: pendingOrder.itens,
+        regiao: (document.getElementById('ccEntregaRegiao') && document.getElementById('ccEntregaRegiao').checked) ? (document.getElementById('ccSelectRegiao') && document.getElementById('ccSelectRegiao').value) || '' : '',
+        retirada: !!(document.getElementById('ccRetirada') && document.getElementById('ccRetirada').checked),
+        valorFrete: resumoTotals.valorFrete || 0,
+        custoAdminValor: resumoTotals.custoAdminValor || 0,
+        contribuicaoVoluntaria: resumoTotals.contribuicaoVoluntaria || 0,
+        subtotalItens: resumoTotals.subtotalItens || 0,
+        total: resumoTotals.total || 0
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirmar pedido'; }
+        if (data && data.ok) {
+          showMsg(msgCompra, 'Pedido registrado! Nº ' + (data.orderId || '') + '. Entraremos em contato para pagamento.', false);
+          if (formOrder) formOrder.reset();
+          fillOrderFromUser();
+          var inpList = containerItens && containerItens.querySelectorAll('input[type="number"]');
+          if (inpList) for (var k = 0; k < inpList.length; k++) inpList[k].value = 0;
+          pendingOrder = null;
+          showStep('order');
+          loadMeusPedidos();
+        } else {
+          showMsg(msgCompra, (data && data.error) || 'Erro ao enviar. Tente de novo.', true);
+        }
+      })
+      .catch(function () {
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirmar pedido'; }
+        showMsg(msgCompra, 'Erro de conexão. Tente de novo.', true);
+      });
   }
 
   function isSafeImageUrl(url) {
@@ -539,7 +725,7 @@
     });
   }
 
-  // —— Pedido ——
+  // —— Pedido: Ver resumo → Resumo → Pagamento → Confirmar ——
   if (formOrder) {
     formOrder.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -576,48 +762,19 @@
           }
         }
       }
-      if (btnEnviar) {
-        btnEnviar.disabled = true;
-        btnEnviar.textContent = 'Enviando…';
-      }
-      fetch(apiBase, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'order',
-          nome: nome,
-          telefone: u.telefone,
-          email: email,
-          bairro: bairro,
-          observacoes: obs,
-          itens: itens
-        })
-      })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-          if (btnEnviar) {
-            btnEnviar.disabled = false;
-            btnEnviar.textContent = 'Enviar pedido';
-          }
-          if (data && data.ok) {
-            showMsg(msgCompra, 'Pedido registrado! Nº ' + (data.orderId || '') + '. Entraremos em contato.', false);
-            formOrder.reset();
-            fillOrderFromUser();
-            if (inpList) for (var k = 0; k < inpList.length; k++) inpList[k].value = 0;
-            loadMeusPedidos();
-          } else {
-            showMsg(msgCompra, (data && data.error) || 'Erro ao enviar. Tente de novo.', true);
-          }
-        })
-        .catch(function () {
-          if (btnEnviar) {
-            btnEnviar.disabled = false;
-            btnEnviar.textContent = 'Enviar pedido';
-          }
-          showMsg(msgCompra, 'Erro de conexão. Tente de novo.', true);
-        });
+      pendingOrder = { nome: nome, bairro: bairro, email: email, obs: obs, itens: itens };
+      showStep('resumo');
     });
   }
+
+  var ccBtnVoltarCesta = document.getElementById('ccBtnVoltarCesta');
+  var ccBtnIrPagamento = document.getElementById('ccBtnIrPagamento');
+  var ccBtnVoltarResumo = document.getElementById('ccBtnVoltarResumo');
+  var ccBtnConfirmarPedido = document.getElementById('ccBtnConfirmarPedido');
+  if (ccBtnVoltarCesta) ccBtnVoltarCesta.addEventListener('click', function () { showStep('order'); });
+  if (ccBtnIrPagamento) ccBtnIrPagamento.addEventListener('click', function () { showStep('pagamento'); });
+  if (ccBtnVoltarResumo) ccBtnVoltarResumo.addEventListener('click', function () { showStep('resumo'); });
+  if (ccBtnConfirmarPedido) ccBtnConfirmarPedido.addEventListener('click', confirmarPedido);
 
   // —— Sair ——
   if (ccSair) {

@@ -226,7 +226,7 @@
   }
 
   function setMainTab(panel) {
-    ['adminPanelNew', 'adminPanelList', 'adminPanelCatalog', 'adminPanelResumo'].forEach(function (id) {
+    ['adminPanelNew', 'adminPanelList', 'adminPanelCatalog', 'adminPanelResumo', 'adminPanelRegiao'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) {
         var key = id.replace('adminPanel', '').toLowerCase();
@@ -239,6 +239,131 @@
       t.classList.toggle('active', active);
       t.setAttribute('aria-selected', active ? 'true' : 'false');
     });
+    if (panel === 'regiao') {
+      loadRegioes();
+      loadOrderConfig();
+    }
+  }
+
+  var currentRegioes = [];
+
+  function loadRegioes() {
+    fetch(apiBase + '?action=regioes')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.regioes) {
+          currentRegioes = data.regioes;
+          renderRegioesTable();
+        } else {
+          currentRegioes = [];
+          renderRegioesTable();
+        }
+      })
+      .catch(function () {
+        currentRegioes = [];
+        renderRegioesTable();
+      });
+  }
+
+  function renderRegioesTable() {
+    var table = document.getElementById('adminRegioesTable');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    var list = (currentRegioes || []).slice();
+    list.push({ regiao: '', frete: '' });
+    list.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><input type="text" class="admin-input admin-regiao-nome" value="' + escapeHtml(r.regiao) + '" placeholder="Ex: Zona Norte" aria-label="Região"></td>' +
+        '<td><input type="number" min="0" step="0.01" class="admin-input admin-regiao-frete" value="' + (r.frete !== '' && r.frete !== undefined ? r.frete : '') + '" placeholder="0" style="width:90px" aria-label="Frete R$"></td>' +
+        '<td><button type="button" class="btn btn-secondary btn-sm admin-btn-excluir-regiao" aria-label="Excluir">Excluir</button></td>';
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.admin-btn-excluir-regiao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tr = btn.closest('tr');
+        if (tr) tr.remove();
+      });
+    });
+  }
+
+  function saveRegioes() {
+    var table = document.getElementById('adminRegioesTable');
+    if (!table) return;
+    var rows = table.querySelectorAll('tbody tr');
+    var regioes = [];
+    for (var i = 0; i < rows.length; i++) {
+      var nome = (rows[i].querySelector('.admin-regiao-nome') && rows[i].querySelector('.admin-regiao-nome').value || '').trim();
+      if (!nome) continue;
+      var frete = parseFloat(rows[i].querySelector('.admin-regiao-frete') && rows[i].querySelector('.admin-regiao-frete').value) || 0;
+      regioes.push({ regiao: nome, frete: frete });
+    }
+    var token = getToken();
+    if (!token) return logout();
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'adminRegioes', token: token, regioes: regioes })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showMsg('Regiões salvas.', false);
+          loadRegioes();
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar regiões.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  function loadOrderConfig() {
+    fetch(apiBase + '?action=orderConfig')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          var pct = document.getElementById('adminCustoAdminPct');
+          var contrib = document.getElementById('adminContribSugerida');
+          if (pct) pct.value = data.custoAdministrativoPercentual || 0;
+          if (contrib) contrib.value = Array.isArray(data.contribuicaoSugerida) ? data.contribuicaoSugerida.join(', ') : (data.contribuicaoSugerida || '0, 2, 5');
+        }
+      })
+      .catch(function () {});
+  }
+
+  function saveOrderConfig(e) {
+    e.preventDefault();
+    var pct = document.getElementById('adminCustoAdminPct');
+    var contrib = document.getElementById('adminContribSugerida');
+    var custo = parseFloat(pct && pct.value) || 0;
+    var contribStr = (contrib && contrib.value || '0, 2, 5').trim();
+    var token = getToken();
+    if (!token) return logout();
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'adminOrderConfig',
+        token: token,
+        custoAdministrativoPercentual: custo,
+        contribuicaoSugerida: contribStr
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showMsg('Config do resumo salva.', false);
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar config.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
   }
 
   function submitNovoPedido(e) {
@@ -750,6 +875,10 @@
   if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
   if (elBtnCarregarBackups) elBtnCarregarBackups.addEventListener('click', loadBackups);
   if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
+  var elBtnSalvarRegioes = document.getElementById('adminBtnSalvarRegioes');
+  if (elBtnSalvarRegioes) elBtnSalvarRegioes.addEventListener('click', saveRegioes);
+  var elFormOrderConfig = document.getElementById('adminFormOrderConfig');
+  if (elFormOrderConfig) elFormOrderConfig.addEventListener('submit', saveOrderConfig);
   document.querySelectorAll('.admin-main-tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       setMainTab(tab.getAttribute('data-main-tab') || 'new');

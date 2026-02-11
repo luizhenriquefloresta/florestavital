@@ -7,6 +7,8 @@
 var SHEET_ITEMS = 'Items';
 var SHEET_ORDERS = 'Orders';
 var SHEET_USERS = 'Users';
+var SHEET_REGIAO = 'Regiao';
+var SHEET_CONFIG = 'Config';
 var SHEET_SEPARACAO = 'Separacao';
 var SHEET_SEPARACAO_POR_PEDIDO = 'Separacao por pedido';
 var SHEET_PEDIDOS_SEPARADOS = 'Pedidos separados';
@@ -31,6 +33,12 @@ function doGet(e) {
 
   if (action === 'items') {
     return getItemsPublic();
+  }
+  if (action === 'regioes') {
+    return getRegioes();
+  }
+  if (action === 'orderConfig') {
+    return getOrderConfig();
   }
   if (action === 'user') {
     var telefone = (params.telefone || '').toString().trim();
@@ -161,6 +169,26 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: 'Erro ao restaurar: ' + (err.message || String(err)) }, 500);
     }
   }
+  if (data.action === 'adminRegioes') {
+    if (!isAdminTokenValid(token)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    try {
+      return postRegioesAdmin(data.regioes);
+    } catch (err) {
+      return jsonResponse({ ok: false, error: String(err.message || err) }, 500);
+    }
+  }
+  if (data.action === 'adminOrderConfig') {
+    if (!isAdminTokenValid(token)) {
+      return jsonResponse({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    try {
+      return postOrderConfigAdmin(data);
+    } catch (err) {
+      return jsonResponse({ ok: false, error: String(err.message || err) }, 500);
+    }
+  }
 
   Logger.log('[doPost] Unknown action: ' + (action || ''));
   return jsonResponse({ ok: false, error: 'Unknown action', received: action || null }, 400);
@@ -199,6 +227,77 @@ function getSheet(name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) return null;
   return sheet;
+}
+
+/** Obtém ou cria a aba com os cabeçalhos na primeira linha. */
+function getOrCreateSheet(name, headers) {
+  var ss = getSpreadsheet();
+  if (!ss) return null;
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    if (headers && headers.length > 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    }
+  }
+  return sheet;
+}
+
+/**
+ * POST adminRegioes — Salva lista de regiões e frete. Cria aba Regiao se não existir.
+ */
+function postRegioesAdmin(regioes) {
+  if (!regioes || !Array.isArray(regioes)) {
+    return jsonResponse({ ok: false, error: 'regioes array required' }, 400);
+  }
+  var sheet = getOrCreateSheet(SHEET_REGIAO, ['regiao', 'frete']);
+  if (!sheet) return jsonResponse({ ok: false, error: 'Planilha não disponível' }, 500);
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) sheet.getRange(2, 1, lastRow, 2).clearContent();
+  var rows = [];
+  for (var i = 0; i < regioes.length; i++) {
+    var r = regioes[i];
+    var regiao = String(r.regiao || '').trim();
+    if (!regiao) continue;
+    rows.push([regiao, parseFloat(r.frete) || 0]);
+  }
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length + 1, 2).setValues(rows);
+  }
+  return jsonResponse({ ok: true });
+}
+
+/**
+ * POST adminOrderConfig — Salva config (custoAdministrativoPercentual, contribuicaoSugerida).
+ */
+function postOrderConfigAdmin(data) {
+  var sheet = getOrCreateSheet(SHEET_CONFIG, ['chave', 'valor']);
+  if (!sheet) return jsonResponse({ ok: false, error: 'Planilha não disponível' }, 500);
+  var custo = parseFloat(data.custoAdministrativoPercentual) || 0;
+  var contribStr = Array.isArray(data.contribuicaoSugerida)
+    ? (data.contribuicaoSugerida || []).map(function (n) { return Number(n); }).join(',')
+    : String(data.contribuicaoSugerida || '0,2,5').trim();
+  var lastRow = sheet.getLastRow();
+  var foundCusto = false;
+  var foundContrib = false;
+  if (lastRow >= 2) {
+    var d = sheet.getRange(2, 1, lastRow, 2).getValues();
+    for (var i = 0; i < d.length; i++) {
+      var k = String(d[i][0] || '').trim().toLowerCase();
+      if (k === 'custoadministrativopercentual') {
+        sheet.getRange(i + 2, 2).setValue(custo);
+        foundCusto = true;
+      }
+      if (k === 'contribuicaosugerida') {
+        sheet.getRange(i + 2, 2).setValue(contribStr);
+        foundContrib = true;
+      }
+    }
+  }
+  if (!foundCusto) sheet.appendRow(['custoAdministrativoPercentual', custo]);
+  if (!foundContrib) sheet.appendRow(['contribuicaoSugerida', contribStr]);
+  return jsonResponse({ ok: true });
 }
 
 var BACKUP_FOLDER_NAME = 'Backups Compra Coletiva';
@@ -506,6 +605,68 @@ function getItemsPublic() {
 }
 
 /**
+ * GET ?action=regioes — Lista regiões e valor de frete (para entrega). Retirada não cobra frete.
+ */
+function getRegioes() {
+  var sheet = getSheet(SHEET_REGIAO);
+  if (!sheet) return jsonResponse({ ok: true, regioes: [] });
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonResponse({ ok: true, regioes: [] });
+  var numCols = Math.max(2, sheet.getLastColumn());
+  var data = sheet.getRange(2, 1, lastRow, numCols).getValues();
+  var regioes = [];
+  for (var i = 0; i < data.length; i++) {
+    var regiao = String(data[i][0] || '').trim();
+    if (!regiao) continue;
+    var frete = parseFloat(data[i][1]) || 0;
+    regioes.push({ regiao: regiao, frete: frete });
+  }
+  return jsonResponse({ ok: true, regioes: regioes });
+}
+
+/**
+ * GET ?action=orderConfig — Config para o resumo do pedido: % custo administrativo e sugestões de % contribuição.
+ */
+function getOrderConfig() {
+  var sheet = getSheet(SHEET_CONFIG);
+  if (!sheet) {
+    return jsonResponse({
+      ok: true,
+      custoAdministrativoPercentual: 0,
+      contribuicaoSugerida: [0, 2, 5]
+    });
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return jsonResponse({
+      ok: true,
+      custoAdministrativoPercentual: 0,
+      contribuicaoSugerida: [0, 2, 5]
+    });
+  }
+  var data = sheet.getRange(2, 1, lastRow, 2).getValues();
+  var custoAdministrativoPercentual = 0;
+  var contribuicaoSugerida = [0, 2, 5];
+  for (var i = 0; i < data.length; i++) {
+    var chave = String(data[i][0] || '').trim().toLowerCase();
+    var valor = data[i][1];
+    if (chave === 'custoadministrativopercentual' || chave === 'custo_administrativo_percentual') {
+      custoAdministrativoPercentual = parseFloat(valor) || 0;
+    }
+    if (chave === 'contribuicaosugerida' || chave === 'contribuicao_sugerida') {
+      var str = String(valor || '0,2,5').trim();
+      contribuicaoSugerida = str.split(/[,;]/).map(function (n) { return parseFloat(n) || 0; }).filter(function (n) { return n >= 0; });
+      if (contribuicaoSugerida.length === 0) contribuicaoSugerida = [0, 2, 5];
+    }
+  }
+  return jsonResponse({
+    ok: true,
+    custoAdministrativoPercentual: custoAdministrativoPercentual,
+    contribuicaoSugerida: contribuicaoSugerida
+  });
+}
+
+/**
  * Retorna todos os itens para o admin.
  */
 function getItemsAdmin() {
@@ -629,10 +790,21 @@ function getOrdersAdmin(limitStr) {
   return jsonResponse({ ok: true, orders: orders });
 }
 
+/** Garante cabeçalhos das colunas extras em Orders (regiao, valorFrete, etc.). */
+function ensureOrdersHeaders(sheet) {
+  if (!sheet) return;
+  var lastCol = sheet.getLastColumn();
+  if (lastCol >= 15) return;
+  var headers = ['regiao', 'valorFrete', 'custoAdmin', 'contribuicao', 'subtotalItens', 'total'];
+  for (var c = 0; c < headers.length; c++) {
+    var col = 10 + c;
+    if (col > lastCol) sheet.getRange(1, col).setValue(headers[c]);
+  }
+}
+
 /**
  * Registra um novo pedido e debita estoque.
- * Body: { action: 'order', nome, telefone, bairro?, observacoes?, email? (opcional), itens }
- * Usuário deve estar identificado por telefone (login por celular).
+ * Body: { action: 'order', nome, telefone, bairro?, observacoes?, email?, itens, regiao?, retirada?, valorFrete?, custoAdminValor?, contribuicaoVoluntaria?, subtotalItens?, total? }
  */
 function postOrder(data) {
   if (data.action !== 'order') {
@@ -686,8 +858,20 @@ function postOrder(data) {
   var timestamp = new Date().toISOString();
   var bairro = (data.bairro || '').toString().trim();
   var observacoes = (data.observacoes || '').toString().trim();
+  var regiao = (data.regiao || '').toString().trim();
+  var retirada = data.retirada === true || data.retirada === 'true' || data.retirada === '1';
+  var valorFrete = parseFloat(data.valorFrete) || 0;
+  var custoAdminValor = parseFloat(data.custoAdminValor) || 0;
+  var contribuicaoVoluntaria = parseFloat(data.contribuicaoVoluntaria) || 0;
+  var subtotalItens = parseFloat(data.subtotalItens) || 0;
+  var total = parseFloat(data.total) || 0;
+  if (retirada) valorFrete = 0;
 
-  sheetOrders.appendRow([orderId, timestamp, nome, email || '', telefone, bairro, observacoes, JSON.stringify(itens), 'ativo']);
+  ensureOrdersHeaders(sheetOrders);
+  sheetOrders.appendRow([
+    orderId, timestamp, nome, email || '', telefone, bairro, observacoes, JSON.stringify(itens), 'ativo',
+    regiao, valorFrete, custoAdminValor, contribuicaoVoluntaria, subtotalItens, total
+  ]);
 
   for (var id2 in itens) {
     if (!itens.hasOwnProperty(id2)) continue;

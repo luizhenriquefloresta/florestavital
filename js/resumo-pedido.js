@@ -223,7 +223,11 @@
 
         showLoading(false);
         if (!orderData || !orderData.ok || !orderData.order) {
-          showError((orderData && orderData.error) || 'Pedido não encontrado.');
+          var err = (orderData && orderData.error) || 'Pedido não encontrado.';
+          if (String(err).indexOf('Unknown action') !== -1) {
+            err = 'Backend desatualizado. Copie o Code.gs atualizado para o Apps Script e faça Implantar → Nova versão.';
+          }
+          showError(err);
           return;
         }
         order = orderData.order;

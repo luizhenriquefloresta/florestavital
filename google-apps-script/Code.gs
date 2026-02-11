@@ -221,46 +221,58 @@ function getBackupFolder() {
 
 /**
  * GET ?action=saveBackup&token=XXX — Cria uma cópia da planilha atual na pasta "Backups Compra Coletiva" (no mesmo Drive).
- * Retorna { ok, backupId, url, name }.
+ * Retorna { ok, backupId, url, name } ou { ok: false, error } em caso de falha.
  */
 function getSaveBackup() {
-  var ss = getSpreadsheet();
-  var folder = getBackupFolder();
-  var now = new Date();
-  var name = 'Backup ' + Utilities.formatDate(now, Session.getScriptTimeZone() || 'America/Sao_Paulo', 'yyyy-MM-dd HH:mm');
-  var copy = ss.copy(name);
-  var copyFile = DriveApp.getFileById(copy.getId());
-  copyFile.moveTo(folder);
-  var url = 'https://docs.google.com/spreadsheets/d/' + copy.getId() + '/edit';
-  Logger.log('[Backup] Criado: ' + name + ' id=' + copy.getId());
-  return jsonResponse({
-    ok: true,
-    backupId: copy.getId(),
-    url: url,
-    name: name
-  });
+  try {
+    var ss = getSpreadsheet();
+    var folder = getBackupFolder();
+    var now = new Date();
+    var name = 'Backup ' + Utilities.formatDate(now, Session.getScriptTimeZone() || 'America/Sao_Paulo', 'yyyy-MM-dd HH:mm');
+    var copy = ss.copy(name);
+    var copyFile = DriveApp.getFileById(copy.getId());
+    copyFile.moveTo(folder);
+    var url = 'https://docs.google.com/spreadsheets/d/' + copy.getId() + '/edit';
+    Logger.log('[Backup] Criado: ' + name + ' id=' + copy.getId());
+    return jsonResponse({
+      ok: true,
+      backupId: copy.getId(),
+      url: url,
+      name: name
+    });
+  } catch (err) {
+    var msg = (err && (err.message || err.toString())) ? (err.message || err.toString()) : 'Erro ao criar backup';
+    Logger.log('[Backup] Erro: ' + msg);
+    return jsonResponse({ ok: false, error: msg }, 500);
+  }
 }
 
 /**
  * GET ?action=listBackups&token=XXX — Lista os últimos backups (planilhas na pasta Backups Compra Coletiva).
- * Retorna { ok, backups: [ { id, name, date } ] }.
+ * Retorna { ok, backups: [ { id, name, date } ] } ou { ok: false, error }.
  */
 function getListBackups() {
-  var folder = getBackupFolder();
-  var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
-  var list = [];
-  while (files.hasNext() && list.length < BACKUP_LIST_MAX) {
-    var f = files.next();
-    list.push({
-      id: f.getId(),
-      name: f.getName(),
-      date: f.getDateCreated() ? f.getDateCreated().toISOString() : ''
+  try {
+    var folder = getBackupFolder();
+    var files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+    var list = [];
+    while (files.hasNext() && list.length < BACKUP_LIST_MAX) {
+      var f = files.next();
+      list.push({
+        id: f.getId(),
+        name: f.getName(),
+        date: f.getDateCreated() ? f.getDateCreated().toISOString() : ''
+      });
+    }
+    list.sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
     });
+    return jsonResponse({ ok: true, backups: list });
+  } catch (err) {
+    var msg = (err && (err.message || err.toString())) ? (err.message || err.toString()) : 'Erro ao listar backups';
+    Logger.log('[Backup] listBackups erro: ' + msg);
+    return jsonResponse({ ok: false, error: msg, backups: [] }, 500);
   }
-  list.sort(function (a, b) {
-    return (b.date || '').localeCompare(a.date || '');
-  });
-  return jsonResponse({ ok: true, backups: list });
 }
 
 /**

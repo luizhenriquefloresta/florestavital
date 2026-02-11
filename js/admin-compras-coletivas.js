@@ -21,15 +21,14 @@
   var elSelectBackup = document.getElementById('adminSelectBackup');
   var elBtnRestaurarBackup = document.getElementById('adminBtnRestaurarBackup');
   var elBackupMsg = document.getElementById('adminBackupMsg');
-  var elBtnAdicionarItem = document.getElementById('adminBtnAdicionarItem');
-  var elNewId = document.getElementById('adminNewId');
-  var elNewNome = document.getElementById('adminNewNome');
-  var elNewUnidade = document.getElementById('adminNewUnidade');
-  var elNewAtivo = document.getElementById('adminNewAtivo');
-  var elNewEstoque = document.getElementById('adminNewEstoque');
-  var elNewPreco = document.getElementById('adminNewPreco');
-  var elNewOrdem = document.getElementById('adminNewOrdem');
-  var elNewImagem = document.getElementById('adminNewImagem');
+  var elNewId = null;
+  var elNewNome = null;
+  var elNewUnidade = null;
+  var elNewAtivo = null;
+  var elNewEstoque = null;
+  var elNewPreco = null;
+  var elNewOrdem = null;
+  var elNewImagem = null;
 
   function getToken() {
     return sessionStorage.getItem(STORAGE_TOKEN) || '';
@@ -121,14 +120,46 @@
 
   var currentItems = [];
 
+  function getNewItemInputs() {
+    return {
+      id: document.getElementById('adminNewId'),
+      nome: document.getElementById('adminNewNome'),
+      unidade: document.getElementById('adminNewUnidade'),
+      ativo: document.getElementById('adminNewAtivo'),
+      estoque: document.getElementById('adminNewEstoque'),
+      preco: document.getElementById('adminNewPreco'),
+      ordem: document.getElementById('adminNewOrdem'),
+      imagem: document.getElementById('adminNewImagem')
+    };
+  }
+
+  function renderNewItemRow() {
+    var tr = document.createElement('tr');
+    tr.className = 'admin-new-item-row';
+    tr.innerHTML =
+      '<td><input type="text" id="adminNewId" class="admin-input" placeholder="ex: cebola" style="width:100%;min-width:60px" aria-label="Id do novo item"></td>' +
+      '<td><input type="text" id="adminNewNome" class="admin-input" placeholder="Nome" style="width:100%" aria-label="Nome"></td>' +
+      '<td><input type="text" id="adminNewUnidade" class="admin-input" placeholder="kg" style="width:70px" aria-label="Unidade"></td>' +
+      '<td><input type="checkbox" id="adminNewAtivo" checked aria-label="Ativo"></td>' +
+      '<td><input type="number" id="adminNewEstoque" class="admin-input" min="0" value="0" style="width:70px" aria-label="Estoque"></td>' +
+      '<td><input type="number" id="adminNewPreco" class="admin-input" min="0" step="0.01" value="0" style="width:70px" aria-label="Preço"></td>' +
+      '<td><input type="number" id="adminNewOrdem" class="admin-input" min="0" value="0" style="width:50px" aria-label="Ordem"></td>' +
+      '<td><input type="url" id="adminNewImagem" class="admin-input" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>' +
+      '<td><button type="button" class="btn btn-primary btn-sm" id="adminBtnAdicionarItem">Adicionar</button></td>';
+    return tr;
+  }
+
   function renderItens(items) {
     currentItems = items || [];
     if (!elItensTable) return;
     var tbody = elItensTable.querySelector('tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
+    tbody.appendChild(renderNewItemRow());
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8">Nenhum item na planilha.</td></tr>';
+      var emptyTr = document.createElement('tr');
+      emptyTr.innerHTML = '<td colspan="9" style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item na planilha.</td>';
+      tbody.appendChild(emptyTr);
       return;
     }
     items.forEach(function (it) {
@@ -141,40 +172,34 @@
         '<td><input type="number" min="0" class="admin-input admin-estoque" value="' + (it.estoque || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Estoque"></td>' +
         '<td><input type="number" min="0" step="0.01" class="admin-input admin-preco" value="' + (it.preco || '') + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Preço"></td>' +
         '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>' +
-        '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>';
+        '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>' +
+        '<td></td>';
       tbody.appendChild(tr);
     });
   }
 
   function addNewItemRow() {
-    var id = (elNewId && elNewId.value || '').toString().trim();
+    var inps = getNewItemInputs();
+    var id = (inps.id && inps.id.value || '').toString().trim();
     if (!id) {
       showMsg('Informe o Id do novo item (ex: cebola).', true);
-      if (elNewId) elNewId.focus();
+      if (inps.id) inps.id.focus();
       return;
     }
-    var nome = (elNewNome && elNewNome.value || '').trim();
-    var unidade = (elNewUnidade && elNewUnidade.value || '').trim() || 'un';
-    var ativo = elNewAtivo ? elNewAtivo.checked : true;
-    var estoque = parseInt(elNewEstoque && elNewEstoque.value, 10);
-    var preco = parseFloat(elNewPreco && elNewPreco.value);
-    var ordem = parseInt(elNewOrdem && elNewOrdem.value, 10);
-    var imagem = (elNewImagem && elNewImagem.value || '').trim();
+    var nome = (inps.nome && inps.nome.value || '').trim();
+    var unidade = (inps.unidade && inps.unidade.value || '').trim() || 'un';
+    var ativo = inps.ativo ? inps.ativo.checked : true;
+    var estoque = parseInt(inps.estoque && inps.estoque.value, 10);
+    var preco = parseFloat(inps.preco && inps.preco.value);
+    var ordem = parseInt(inps.ordem && inps.ordem.value, 10);
+    var imagem = (inps.imagem && inps.imagem.value || '').trim();
     if (isNaN(estoque)) estoque = 0;
     if (isNaN(preco)) preco = 0;
     if (isNaN(ordem)) ordem = 0;
     var it = { id: id, nome: nome, unidade: unidade, ativo: ativo, estoque: estoque, preco: preco, ordem: ordem, imagem: imagem };
     currentItems.push(it);
     renderItens(currentItems);
-    if (elNewId) elNewId.value = '';
-    if (elNewNome) elNewNome.value = '';
-    if (elNewUnidade) elNewUnidade.value = '';
-    if (elNewAtivo) elNewAtivo.checked = true;
-    if (elNewEstoque) elNewEstoque.value = '0';
-    if (elNewPreco) elNewPreco.value = '0';
-    if (elNewOrdem) elNewOrdem.value = '0';
-    if (elNewImagem) elNewImagem.value = '';
-    showMsg('Item adicionado à lista. Clique em &quot;Salvar alterações&quot; para gravar na planilha.', false);
+    showMsg('Item adicionado à lista. Clique em "Salvar alterações" para gravar na planilha.', false);
   }
 
   function loadItens() {
@@ -203,6 +228,7 @@
     });
     var out = [];
     for (var i = 0; i < rows.length; i++) {
+      if (rows[i].classList && rows[i].classList.contains('admin-new-item-row')) continue;
       var id = rows[i].querySelector('[data-id]') && rows[i].querySelector('[data-id]').getAttribute('data-id');
       if (!id) continue;
       var nome = (rows[i].querySelector('.admin-nome') && rows[i].querySelector('.admin-nome').value || '').trim();
@@ -436,20 +462,30 @@
     if (!token || !elSelectBackup) return;
     elSelectBackup.innerHTML = '<option value="">Carregando…</option>';
     fetch(apiBase + '?action=listBackups&token=' + encodeURIComponent(token))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { ok: r.ok, data: data };
+        }).catch(function () {
+          return { ok: false, data: { error: 'Resposta inválida' } };
+        });
+      })
+      .then(function (res) {
+        var data = res.data;
         elSelectBackup.innerHTML = '<option value="">— Escolha um backup —</option>';
-        if (data && data.ok && data.backups && data.backups.length > 0) {
+        if (res.ok && data && data.ok && data.backups && data.backups.length > 0) {
           data.backups.forEach(function (b) {
             var opt = document.createElement('option');
             opt.value = b.id;
             opt.textContent = (b.name || b.id) + (b.date ? ' (' + b.date.slice(0, 10) + ')' : '');
             elSelectBackup.appendChild(opt);
           });
+        } else if (data && data.error) {
+          showBackupMsg('Lista de backups: ' + data.error, true);
         }
       })
       .catch(function () {
         elSelectBackup.innerHTML = '<option value="">Erro ao carregar</option>';
+        showBackupMsg('Erro de conexão ao carregar backups.', true);
       });
   }
 
@@ -462,25 +498,32 @@
     }
     showBackupMsg('');
     fetch(apiBase + '?action=saveBackup&token=' + encodeURIComponent(token))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { ok: r.ok, data: data };
+        }).catch(function () {
+          return { ok: false, data: { error: r.status ? 'Erro ' + r.status + ' no servidor.' : 'Resposta inválida.' } };
+        });
+      })
+      .then(function (res) {
         if (elBtnSalvarBackup) {
           elBtnSalvarBackup.disabled = false;
           elBtnSalvarBackup.textContent = 'Salvar backup';
         }
-        if (data && data.ok) {
+        var data = res.data;
+        if (res.ok && data && data.ok) {
           showBackupMsg('Backup criado: ' + (data.name || '') + '. ' + (data.url ? 'Abre no Drive: ' + data.url : ''), false);
           loadBackups();
         } else {
           showBackupMsg((data && data.error) || 'Erro ao criar backup.', true);
         }
       })
-      .catch(function () {
+      .catch(function (err) {
         if (elBtnSalvarBackup) {
           elBtnSalvarBackup.disabled = false;
           elBtnSalvarBackup.textContent = 'Salvar backup';
         }
-        showBackupMsg('Erro de conexão.', true);
+        showBackupMsg('Erro de conexão. Verifique a URL da API em js/config.js.', true);
       });
   }
 
@@ -566,7 +609,11 @@
   if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
   if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
   if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
-  if (elBtnAdicionarItem) elBtnAdicionarItem.addEventListener('click', addNewItemRow);
+  if (elItensTable) {
+    elItensTable.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'adminBtnAdicionarItem') addNewItemRow();
+    });
+  }
 
   checkAuth();
 })();

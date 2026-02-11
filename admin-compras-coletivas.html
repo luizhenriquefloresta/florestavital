@@ -54,6 +54,39 @@
     .admin-status-cancelado { background: rgba(120, 80, 80, 0.15); color: #8b4545; }
     .admin-acoes-next { font-size: 0.85rem; }
     .admin-acoes-done { color: var(--text-soft); font-size: 0.85rem; }
+    /* Botões menores na admin */
+    .admin-wrap .btn { padding: 6px 14px; font-size: 0.85rem; min-height: 36px; }
+    .admin-wrap .btn.btn-sm { padding: 4px 10px; font-size: 0.8rem; min-height: 32px; }
+    .admin-table .admin-new-item-row td { background: rgba(45, 74, 62, 0.05); }
+    /* Select alinhado ao design system (form-group) */
+    .admin-wrap select,
+    .admin-wrap select.admin-input {
+      width: 100%;
+      max-width: 100%;
+      min-height: 40px;
+      padding: var(--space-sm) var(--space-md);
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      border: 2px solid var(--sand);
+      border-radius: var(--radius-md);
+      background: var(--cream);
+      color: var(--text);
+      transition: border-color 0.2s ease;
+      cursor: pointer;
+    }
+    .admin-wrap select:focus {
+      outline: none;
+      border-color: var(--sage);
+    }
+    html[data-theme="dark"] .admin-wrap select,
+    html[data-theme="dark"] .admin-wrap select.admin-input {
+      background: var(--cream);
+      border-color: var(--sand);
+      color: var(--text);
+    }
+    html[data-theme="dark"] .admin-wrap select:focus {
+      border-color: var(--sage);
+    }
   </style>
 </head>
 <body>
@@ -92,20 +125,9 @@
 
       <section class="admin-section">
         <h2>Itens do catálogo</h2>
-        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Use a linha abaixo para adicionar um novo item; edite os existentes e clique em &quot;Salvar alterações&quot;.</p>
-        <div class="admin-add-item-row" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: var(--space-sm); align-items: end; margin-bottom: var(--space-md); flex-wrap: wrap;">
-          <div class="form-group" style="margin: 0;"><label for="adminNewId">Id</label><input type="text" id="adminNewId" class="admin-input" placeholder="ex: cebola" style="width: 100%;" aria-label="Id do novo item"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewNome">Nome</label><input type="text" id="adminNewNome" class="admin-input" placeholder="Nome" style="width: 100%;" aria-label="Nome"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewUnidade">Unidade</label><input type="text" id="adminNewUnidade" class="admin-input" placeholder="kg" style="width: 100%;" aria-label="Unidade"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewAtivo">Ativo</label><input type="checkbox" id="adminNewAtivo" checked aria-label="Ativo" style="margin-top: 8px;"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewEstoque">Estoque</label><input type="number" id="adminNewEstoque" class="admin-input" min="0" value="0" style="width: 100%;" aria-label="Estoque"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewPreco">Preço</label><input type="number" id="adminNewPreco" class="admin-input" min="0" step="0.01" value="0" style="width: 100%;" aria-label="Preço"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewOrdem">Ordem</label><input type="number" id="adminNewOrdem" class="admin-input" min="0" value="0" style="width: 100%;" aria-label="Ordem"></div>
-          <div class="form-group" style="margin: 0;"><label for="adminNewImagem">Imagem (URL)</label><input type="url" id="adminNewImagem" class="admin-input" placeholder="https://…" style="width: 100%;" aria-label="URL da imagem"></div>
-          <div class="form-group" style="margin: 0;"><label>&nbsp;</label><button type="button" class="btn btn-primary" id="adminBtnAdicionarItem">Adicionar item</button></div>
-        </div>
-        <div class="admin-actions">
-          <button type="button" class="btn btn-primary" id="adminBtnSalvar">Salvar alterações</button>
+        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Edite os itens na tabela; use a primeira linha para adicionar um novo item. Depois clique em "Salvar alterações".</p>
+        <div class="admin-actions" style="margin-bottom: var(--space-sm);">
+          <button type="button" class="btn btn-primary btn-sm" id="adminBtnSalvar">Salvar alterações</button>
         </div>
         <div class="admin-table-wrap">
           <table class="admin-table" id="adminItensTable" aria-label="Itens do catálogo">
@@ -119,6 +141,7 @@
                 <th>Preço</th>
                 <th>Ordem</th>
                 <th>Imagem (URL)</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -159,11 +182,11 @@
 
       <section class="admin-section admin-section-backup" style="text-align: center; max-width: 560px; margin-left: auto; margin-right: auto;">
         <h2>Backup da planilha</h2>
-        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Crie uma cópia da planilha (Items, Users, Orders) na pasta &quot;Backups Compra Coletiva&quot; no mesmo Drive, ou restaure a partir de um backup anterior.</p>
+        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Crie uma cópia da planilha (Items, Users, Orders) na pasta "Backups Compra Coletiva" no mesmo Drive, ou restaure a partir de um backup anterior.</p>
         <div class="admin-actions" style="justify-content: center; flex-wrap: wrap;">
           <button type="button" class="btn btn-primary" id="adminBtnSalvarBackup">Salvar backup</button>
           <span style="display: inline-flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; justify-content: center;">
-            <select id="adminSelectBackup" class="admin-input" aria-label="Escolher backup para restaurar" style="min-width: 220px; padding: 8px 12px;">
+            <select id="adminSelectBackup" class="admin-input admin-select-backup" aria-label="Escolher backup para restaurar" style="min-width: 220px;">
               <option value="">— Carregar backups —</option>
             </select>
             <button type="button" class="btn btn-secondary" id="adminBtnRestaurarBackup">Restaurar este backup</button>

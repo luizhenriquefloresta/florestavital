@@ -3,8 +3,5 @@
 .clasprc.json
 *-creds.json
 
-# Config do backend (cada ambiente usa sua URL) — use js/config.js.example como base
-js/config.js
-
 # Dependências
 node_modules/

@@ -87,6 +87,38 @@
     html[data-theme="dark"] .admin-wrap select:focus {
       border-color: var(--sage);
     }
+    /* Abas principais: Novo pedido | Pedidos */
+    .admin-main-tabs { display: flex; gap: 2px; margin-bottom: var(--space-lg); border-bottom: 2px solid var(--sand); }
+    .admin-main-tab {
+      padding: var(--space-md) var(--space-lg); font-size: 1rem; font-weight: 600; border: none; border-bottom: 3px solid transparent;
+      margin-bottom: -2px; background: transparent; color: var(--text-soft); cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .admin-main-tab:hover { color: var(--forest); background: rgba(45, 74, 62, 0.06); }
+    .admin-main-tab.active { color: var(--forest); border-bottom-color: var(--sage); background: rgba(107, 142, 106, 0.08); }
+    html[data-theme="dark"] .admin-main-tab.active { background: rgba(107, 142, 106, 0.12); }
+    .admin-panel-content { display: none; }
+    .admin-panel-content.active { display: block; }
+    /* Form Novo pedido */
+    .admin-new-order-form { max-width: 560px; }
+    .admin-new-order-form .form-group { margin-bottom: var(--space-md); }
+    .admin-new-order-form label { display: block; margin-bottom: var(--space-xs); font-weight: 500; color: var(--forest); }
+    .admin-new-order-form .admin-input { width: 100%; max-width: 100%; box-sizing: border-box; }
+    .admin-new-order-itens { margin: var(--space-md) 0; padding: var(--space-sm) 0; border-top: 1px solid var(--sand); }
+    .admin-new-order-itens h3 { font-size: 1rem; color: var(--forest); margin-bottom: var(--space-sm); }
+    .admin-new-order-item-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+    .admin-new-order-item-row label { flex: 1; margin: 0; font-weight: normal; color: var(--text); }
+    .admin-new-order-item-row input[type="number"] { width: 80px; min-width: 60px; }
+    /* Abas de pedidos por status (dentro da aba Pedidos) */
+    .admin-orders-tabs { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: var(--space-md); border-bottom: 2px solid var(--sand); }
+    .admin-tab {
+      padding: var(--space-sm) var(--space-md); font-size: 0.9rem; font-weight: 500; border: none; border-bottom: 3px solid transparent;
+      margin-bottom: -2px; background: transparent; color: var(--text-soft); cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .admin-tab:hover { color: var(--forest); background: rgba(45, 74, 62, 0.06); }
+    .admin-tab.active { color: var(--forest); border-bottom-color: var(--sage); background: rgba(107, 142, 106, 0.08); }
+    html[data-theme="dark"] .admin-tab.active { background: rgba(107, 142, 106, 0.12); }
   </style>
 </head>
 <body>
@@ -123,6 +155,80 @@
         <button type="button" class="btn btn-secondary" id="adminBtnSair">Sair</button>
       </div>
 
+      <div class="admin-main-tabs" role="tablist" aria-label="Navegação principal">
+        <button type="button" class="admin-main-tab active" role="tab" aria-selected="true" data-main-tab="new">Novo pedido</button>
+        <button type="button" class="admin-main-tab" role="tab" aria-selected="false" data-main-tab="list">Pedidos</button>
+      </div>
+
+      <div id="adminPanelNew" class="admin-panel-content active" role="tabpanel">
+        <section class="admin-section">
+          <h2>Registrar novo pedido</h2>
+          <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Preencha os dados e as quantidades dos itens. O pedido será criado com status &quot;ativo&quot; (na separação).</p>
+          <form id="adminFormNovoPedido" class="admin-new-order-form">
+            <div class="form-group">
+              <label for="adminNovoPedidoNome">Nome *</label>
+              <input type="text" id="adminNovoPedidoNome" class="admin-input" required placeholder="Nome do cliente">
+            </div>
+            <div class="form-group">
+              <label for="adminNovoPedidoEmail">E-mail</label>
+              <input type="email" id="adminNovoPedidoEmail" class="admin-input" placeholder="email@exemplo.com">
+            </div>
+            <div class="form-group">
+              <label for="adminNovoPedidoTelefone">Telefone *</label>
+              <input type="tel" id="adminNovoPedidoTelefone" class="admin-input" required placeholder="(11) 99999-9999">
+            </div>
+            <div class="form-group">
+              <label for="adminNovoPedidoBairro">Bairro</label>
+              <input type="text" id="adminNovoPedidoBairro" class="admin-input" placeholder="Bairro">
+            </div>
+            <div class="form-group">
+              <label for="adminNovoPedidoObs">Observações</label>
+              <input type="text" id="adminNovoPedidoObs" class="admin-input" placeholder="Observações">
+            </div>
+            <div class="admin-new-order-itens">
+              <h3>Itens e quantidades</h3>
+              <div id="adminNovoPedidoItens"></div>
+            </div>
+            <button type="submit" class="btn btn-primary">Registrar pedido</button>
+          </form>
+        </section>
+      </div>
+
+      <div id="adminPanelList" class="admin-panel-content" role="tabpanel">
+        <section class="admin-section">
+          <h2>Pedidos recentes (últimos 20)</h2>
+          <p class="admin-status-legend">Fluxo: <strong>Ativo</strong> (na separação) → <strong>Separado</strong> → <strong>Entregue</strong>. Use as abas para filtrar e os botões para avançar o status.</p>
+          <div class="admin-orders-tabs" role="tablist" aria-label="Filtrar pedidos por status">
+            <button type="button" class="admin-tab active" role="tab" aria-selected="true" data-orders-tab="">Todos</button>
+            <button type="button" class="admin-tab" role="tab" aria-selected="false" data-orders-tab="ativo">Ativos</button>
+            <button type="button" class="admin-tab" role="tab" aria-selected="false" data-orders-tab="separado">Separados</button>
+            <button type="button" class="admin-tab" role="tab" aria-selected="false" data-orders-tab="entregue">Entregues</button>
+            <button type="button" class="admin-tab" role="tab" aria-selected="false" data-orders-tab="cancelado">Cancelados</button>
+          </div>
+          <div class="admin-actions">
+            <button type="button" class="btn btn-secondary" id="adminBtnExportCsv">Exportar CSV</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="adminOrdersTable" aria-label="Pedidos recentes">
+              <thead>
+                <tr>
+                  <th>ID Pedido</th>
+                  <th>Data/Hora</th>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Telefone</th>
+                  <th>Bairro</th>
+                  <th>Status</th>
+                  <th>Itens</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
       <section class="admin-section">
         <h2>Itens do catálogo</h2>
         <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Edite os itens na tabela; use a primeira linha para adicionar um novo item. Depois clique em "Salvar alterações".</p>
@@ -152,32 +258,6 @@
       <section class="admin-section">
         <h2>Resumo por item (últimos 20 pedidos)</h2>
         <div id="adminResumoItens"></div>
-      </section>
-
-      <section class="admin-section">
-        <h2>Pedidos recentes (últimos 20)</h2>
-        <p class="admin-status-legend">Fluxo: <strong>Ativo</strong> (na separação) → <strong>Separado</strong> (aba Pedidos separados) → <strong>Entregue</strong> (aba Pedidos entregues). Use os botões para avançar o status.</p>
-        <div class="admin-actions">
-          <button type="button" class="btn btn-secondary" id="adminBtnExportCsv">Exportar CSV</button>
-        </div>
-        <div class="admin-table-wrap">
-          <table class="admin-table" id="adminOrdersTable" aria-label="Pedidos recentes">
-            <thead>
-              <tr>
-                <th>ID Pedido</th>
-                <th>Data/Hora</th>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Telefone</th>
-                <th>Bairro</th>
-                <th>Status</th>
-                <th>Itens</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
       </section>
 
       <section class="admin-section admin-section-backup" style="text-align: center; max-width: 560px; margin-left: auto; margin-right: auto;">

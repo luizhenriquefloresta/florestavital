@@ -189,6 +189,89 @@
         '<td></td>';
       tbody.appendChild(tr);
     });
+    renderNovoPedidoItens();
+  }
+
+  var elNovoPedidoItens = null;
+
+  function renderNovoPedidoItens() {
+    elNovoPedidoItens = document.getElementById('adminNovoPedidoItens');
+    if (!elNovoPedidoItens) return;
+    var ativos = (currentItems || []).filter(function (it) { return it.ativo; });
+    elNovoPedidoItens.innerHTML = '';
+    if (ativos.length === 0) {
+      elNovoPedidoItens.innerHTML = '<p style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item ativo. Ative itens no catálogo abaixo.</p>';
+      return;
+    }
+    ativos.forEach(function (it) {
+      var safeId = String(it.id || '').replace(/[^a-zA-Z0-9-_]/g, '_');
+      var row = document.createElement('div');
+      row.className = 'admin-new-order-item-row';
+      row.innerHTML =
+        '<label for="adminQty-' + safeId + '">' + escapeHtml(it.nome) + ' <span style="color: var(--text-soft);">(' + escapeHtml(it.id) + ')</span></label>' +
+        '<input type="number" min="0" id="adminQty-' + safeId + '" class="admin-input admin-novo-pedido-qty" data-item-id="' + escapeHtml(it.id) + '" value="0" aria-label="Quantidade ' + escapeHtml(it.nome) + '">';
+      elNovoPedidoItens.appendChild(row);
+    });
+  }
+
+  function setMainTab(panel) {
+    var isNew = panel === 'new';
+    var elNew = document.getElementById('adminPanelNew');
+    var elList = document.getElementById('adminPanelList');
+    if (elNew) elNew.classList.toggle('active', isNew);
+    if (elList) elList.classList.toggle('active', !isNew);
+    document.querySelectorAll('.admin-main-tab').forEach(function (t) {
+      var tabPanel = t.getAttribute('data-main-tab');
+      var active = tabPanel === panel;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+  }
+
+  function submitNovoPedido(e) {
+    e.preventDefault();
+    var nome = (document.getElementById('adminNovoPedidoNome') && document.getElementById('adminNovoPedidoNome').value || '').trim();
+    var email = (document.getElementById('adminNovoPedidoEmail') && document.getElementById('adminNovoPedidoEmail').value || '').trim();
+    var telefone = (document.getElementById('adminNovoPedidoTelefone') && document.getElementById('adminNovoPedidoTelefone').value || '').trim();
+    var bairro = (document.getElementById('adminNovoPedidoBairro') && document.getElementById('adminNovoPedidoBairro').value || '').trim();
+    var observacoes = (document.getElementById('adminNovoPedidoObs') && document.getElementById('adminNovoPedidoObs').value || '').trim();
+    if (!nome || !telefone) {
+      showMsg('Preencha nome e telefone.', true);
+      return;
+    }
+    var itens = {};
+    document.querySelectorAll('.admin-novo-pedido-qty').forEach(function (inp) {
+      var id = inp.getAttribute('data-item-id');
+      var qty = parseInt(inp.value, 10) || 0;
+      if (id && qty > 0) itens[id] = qty;
+    });
+    if (Object.keys(itens).length === 0) {
+      showMsg('Informe a quantidade de pelo menos um item.', true);
+      return;
+    }
+    showMsg('Salvando pedido…', false);
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'order', nome: nome, email: email, telefone: telefone, bairro: bairro, observacoes: observacoes, itens: itens })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.orderId) {
+          showMsg('Pedido registrado: ' + data.orderId + '. Veja na aba Pedidos.', false);
+          if (document.getElementById('adminFormNovoPedido')) {
+            document.getElementById('adminFormNovoPedido').reset();
+            document.querySelectorAll('.admin-novo-pedido-qty').forEach(function (inp) { inp.value = '0'; });
+          }
+          loadOrders();
+          setMainTab('list');
+        } else {
+          showMsg((data && data.error) || 'Erro ao registrar pedido.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão ao registrar pedido.', true);
+      });
   }
 
   function addNewItemRow() {
@@ -300,6 +383,26 @@
   }
 
   var currentOrders = [];
+  var ordersTabFilter = '';
+
+  function getOrdersForTab() {
+    if (!ordersTabFilter) return currentOrders;
+    return currentOrders.filter(function (o) {
+      var s = (o.status || '').toLowerCase();
+      return s === ordersTabFilter;
+    });
+  }
+
+  function setOrdersTab(filter) {
+    ordersTabFilter = filter;
+    var tabs = document.querySelectorAll('.admin-orders-tabs .admin-tab');
+    tabs.forEach(function (t) {
+      var isActive = (t.getAttribute('data-orders-tab') || '') === (filter || '');
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    renderOrders(getOrdersForTab());
+  }
 
   function loadOrders() {
     var token = getToken();
@@ -309,7 +412,7 @@
       .then(function (data) {
         if (data && data.ok && data.orders) {
           currentOrders = data.orders;
-          renderOrders(data.orders);
+          renderOrders(getOrdersForTab());
           renderResumoItens(data.orders);
         } else {
           currentOrders = [];
@@ -633,6 +736,18 @@
   if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
   if (elBtnCarregarBackups) elBtnCarregarBackups.addEventListener('click', loadBackups);
   if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
+  document.querySelectorAll('.admin-main-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setMainTab(tab.getAttribute('data-main-tab') || 'new');
+    });
+  });
+  document.querySelectorAll('.admin-orders-tabs .admin-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setOrdersTab(tab.getAttribute('data-orders-tab') || '');
+    });
+  });
+  var formNovoPedido = document.getElementById('adminFormNovoPedido');
+  if (formNovoPedido) formNovoPedido.addEventListener('submit', submitNovoPedido);
   if (elItensTable) {
     elItensTable.addEventListener('click', function (e) {
       if (e.target && e.target.id === 'adminBtnAdicionarItem') addNewItemRow();

@@ -531,6 +531,9 @@ function getItemsAdmin() {
       imagem: row[7] !== undefined && row[7] !== null ? String(row[7] || '').trim() : ''
     });
   }
+  items = items.filter(function (it) {
+    return (it.id || '').toString().trim() !== '';
+  });
   items.sort(function (a, b) {
     if (a.ordem !== b.ordem) return a.ordem - b.ordem;
     return (a.nome || '').localeCompare(b.nome || '');

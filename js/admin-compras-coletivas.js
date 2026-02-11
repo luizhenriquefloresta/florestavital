@@ -19,9 +19,17 @@
   var elResumoItens = document.getElementById('adminResumoItens');
   var elBtnSalvarBackup = document.getElementById('adminBtnSalvarBackup');
   var elSelectBackup = document.getElementById('adminSelectBackup');
+  var elBtnCarregarBackups = document.getElementById('adminBtnCarregarBackups');
   var elBtnRestaurarBackup = document.getElementById('adminBtnRestaurarBackup');
   var elBackupMsg = document.getElementById('adminBackupMsg');
   var elNewId = null;
+
+  function apiUrl(params) {
+    var base = apiBase || '';
+    var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    if (!q) return base;
+    return base.indexOf('?') >= 0 ? base + '&' + q : base + '?' + q;
+  }
   var elNewNome = null;
   var elNewUnidade = null;
   var elNewAtivo = null;
@@ -64,7 +72,6 @@
           showPainel(true);
           loadItens();
           loadOrders();
-          loadBackups();
         } else {
           setToken('');
           showPainel(false);
@@ -94,7 +101,6 @@
           showPainel(true);
           loadItens();
           loadOrders();
-          loadBackups();
         } else {
           showMsg('Token inválido.', true);
         }
@@ -150,7 +156,10 @@
   }
 
   function renderItens(items) {
-    currentItems = items || [];
+    items = (items || []).filter(function (it) {
+      return (it.id || '').toString().trim() !== '';
+    });
+    currentItems = items;
     if (!elItensTable) return;
     var tbody = elItensTable.querySelector('tbody');
     if (!tbody) return;
@@ -461,7 +470,8 @@
     var token = getToken();
     if (!token || !elSelectBackup) return;
     elSelectBackup.innerHTML = '<option value="">Carregando…</option>';
-    fetch(apiBase + '?action=listBackups&token=' + encodeURIComponent(token))
+    showBackupMsg('');
+    fetch(apiUrl({ action: 'listBackups', token: token }))
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };
@@ -480,7 +490,12 @@
             elSelectBackup.appendChild(opt);
           });
         } else if (data && data.error) {
-          showBackupMsg('Lista de backups: ' + data.error, true);
+          var err = data.error;
+          if (err.indexOf('Unknown action') !== -1) {
+            showBackupMsg('Backend não reconheceu a ação. Atualize o deploy do Apps Script e do Worker (docs/DEPLOY-APPS-SCRIPT.md).', true);
+          } else {
+            showBackupMsg('Lista de backups: ' + err, true);
+          }
         }
       })
       .catch(function () {
@@ -497,7 +512,7 @@
       elBtnSalvarBackup.textContent = 'Salvando…';
     }
     showBackupMsg('');
-    fetch(apiBase + '?action=saveBackup&token=' + encodeURIComponent(token))
+    fetch(apiUrl({ action: 'saveBackup', token: token }))
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };
@@ -515,10 +530,14 @@
           showBackupMsg('Backup criado: ' + (data.name || '') + '. ' + (data.url ? 'Abre no Drive: ' + data.url : ''), false);
           loadBackups();
         } else {
-          showBackupMsg((data && data.error) || 'Erro ao criar backup.', true);
+          var err = (data && data.error) || 'Erro ao criar backup.';
+          if (err.indexOf('Unknown action') !== -1) {
+            err = 'Backend não reconheceu a ação. Atualize o deploy do Apps Script e do Worker (veja docs).';
+          }
+          showBackupMsg(err, true);
         }
       })
-      .catch(function (err) {
+      .catch(function () {
         if (elBtnSalvarBackup) {
           elBtnSalvarBackup.disabled = false;
           elBtnSalvarBackup.textContent = 'Salvar backup';
@@ -608,6 +627,7 @@
   if (elBtnSalvar) elBtnSalvar.addEventListener('click', saveItens);
   if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
   if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
+  if (elBtnCarregarBackups) elBtnCarregarBackups.addEventListener('click', loadBackups);
   if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
   if (elItensTable) {
     elItensTable.addEventListener('click', function (e) {

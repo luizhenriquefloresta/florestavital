@@ -38,9 +38,15 @@ export default {
 
       const url = new URL(request.url);
       const base = scriptUrl.replace(/\/$/, '');
-      const hasParams = url.search && url.search.length > 1;
-      const targetUrl = hasParams
-        ? (base.includes('?') ? base + '&' + url.search.slice(1) : base + url.search)
+      let queryString = url.search && url.search.length > 1 ? url.search.slice(1) : '';
+      const pathAction = url.pathname.replace(/^\/+/, '').toLowerCase();
+      if (pathAction === 'listbackups' || pathAction === 'savebackup') {
+        const params = new URLSearchParams(queryString);
+        params.set('action', pathAction === 'listbackups' ? 'listBackups' : 'saveBackup');
+        queryString = params.toString();
+      }
+      const targetUrl = queryString
+        ? (base.includes('?') ? base + '&' + queryString : base + '?' + queryString)
         : base;
 
       const init = {
@@ -48,7 +54,6 @@ export default {
         headers: {},
       };
       if (request.method === 'POST' && request.body) {
-        // Ler o body em buffer para evitar erro em redirects (stream só pode ser lido uma vez)
         init.body = await request.arrayBuffer();
         const ct = request.headers.get('Content-Type');
         if (ct) init.headers['Content-Type'] = ct;

@@ -1,4 +1,4 @@
-# CORS e Google Apps Script
+                                                                                                                                    # CORS e Google Apps Script
 
 **Guia rápido em 5 min:** use **docs/PROXY-CORS-PASSO-A-PASSO.md** para subir o proxy e o site funcionar.
 
@@ -60,5 +60,23 @@ Foi incluído um script de proxy em **workers/cors-proxy.js** para **Cloudflare 
 |----------|-------------|
 | Erro de CORS ao abrir o site no GitHub Pages | Usar o proxy (workers/cors-proxy.js) no Cloudflare Workers e colocar a URL do Worker em **js/config.js** |
 | URL ainda é SUA_URL_DO_WEB_APP | Trocar em **js/config.js** pela URL real do Web App (ou pela URL do proxy, se já tiver configurado o Worker) |
+| "Backend não reconheceu a ação" (backup/listar) | Ver seção abaixo |
 
 O proxy não guarda dados; só encaminha GET/POST para o Apps Script e adiciona os cabeçalhos CORS na resposta.
+
+---
+
+## "Backend não reconheceu a ação" (backup / Carregar lista)
+
+Se ao clicar em **Carregar lista** ou **Salvar backup** aparecer essa mensagem:
+
+1. **Worker**  
+   No Cloudflare, abra o Worker, cole de novo o código de **workers/cors-proxy.js** (deste repositório), salve e faça **Deploy**.
+
+2. **SCRIPT_URL**  
+   Em Settings → Variables, confira que `SCRIPT_URL` é **só** a URL do Web App, **sem** nada depois de `exec`:  
+   `https://script.google.com/macros/s/SEU_ID/exec`  
+   (nada como `?foo=1` ou `/outra-coisa`.)
+
+3. **Apps Script**  
+   O código do backend precisa ter as ações de backup. Se você usa deploy por GitHub Actions (veja **docs/DEPLOY-APPS-SCRIPT.md**), faça um push em `google-apps-script/` para rodar o deploy. Se não, no editor do Apps Script: Arquivo → Versão → Nova versão e depois Implantar → Gerenciar implantações → Editar → Nova versão.

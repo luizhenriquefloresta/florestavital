@@ -30,6 +30,10 @@
     if (!q) return base;
     return base.indexOf('?') >= 0 ? base + '&' + q : base + '?' + q;
   }
+  function backupUrl(action, token) {
+    var base = (apiBase || '').replace(/\/$/, '');
+    return base + '/' + action + '?' + (token ? 'token=' + encodeURIComponent(token) : '');
+  }
   var elNewNome = null;
   var elNewUnidade = null;
   var elNewAtivo = null;
@@ -471,7 +475,7 @@
     if (!token || !elSelectBackup) return;
     elSelectBackup.innerHTML = '<option value="">Carregando…</option>';
     showBackupMsg('');
-    fetch(apiUrl({ action: 'listBackups', token: token }))
+    fetch(backupUrl('listBackups', token))
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };
@@ -512,7 +516,7 @@
       elBtnSalvarBackup.textContent = 'Salvando…';
     }
     showBackupMsg('');
-    fetch(apiUrl({ action: 'saveBackup', token: token }))
+    fetch(backupUrl('saveBackup', token))
       .then(function (r) {
         return r.json().then(function (data) {
           return { ok: r.ok, data: data };

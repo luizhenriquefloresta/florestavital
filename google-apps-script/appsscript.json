@@ -1,4 +1,5 @@
 {
   "timeZone": "America/Sao_Paulo",
-  "dependencies": {}
+  "dependencies": {},
+  "runtimeVersion": "V8"
 }

@@ -86,3 +86,11 @@ Para testar push/pull no seu PC sem usar o GitHub:
    ```
 
 O arquivo `.clasp.json` não será commitado (está no `.gitignore`).
+
+## Runtime V8 (Rhino descontinuado em 31/01/2026)
+
+O projeto já está configurado para o **runtime V8** no `appsscript.json` (`"runtimeVersion": "V8"`). O tempo de execução Rhino será desativado em 31 de janeiro de 2026 ou depois; com V8 ativo, o script continua funcionando.
+
+- O código em `google-apps-script/Code.gs` é compatível com V8 (não usa `for each...in`, `getYear()`, XML literals, etc.).
+- Após um novo deploy (push ou clasp push), o Apps Script usará V8. Se você alterar o manifesto no editor do Google, ative **Configurações do projeto** → **Tempo de execução do JavaScript** → **V8**.
+- Migração oficial: [Migrate scripts to the V8 runtime](https://developers.google.com/apps-script/guides/v8-runtime/migration).

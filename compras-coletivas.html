@@ -2,11 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Entre na lista de compra coletiva mensal da Floresta Vital - alimentos saudáveis direto de produtores agroecológicos.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Compra coletiva mensal - Floresta Vital. Entre com seu celular e faça seu pedido.">
   <title>Compra Coletiva Mensal | Floresta Vital</title>
   <link rel="stylesheet" href="css/styles.css">
   <style>
+    /* Mobile first: toques grandes, coluna única */
+    .cc-section { display: none; }
+    .cc-section.active { display: block; }
+    .cc-card { max-width: 100%; }
+    .cc-step-title { font-size: 1.1rem; color: var(--forest); margin-bottom: var(--space-sm); }
+    .cc-phone-input { font-size: 1.1rem; padding: var(--space-md) var(--space-sm); min-height: 48px; }
+    .cc-btn { width: 100%; min-height: 48px; font-size: 1rem; margin-top: var(--space-sm); }
+    .cc-link { display: inline-block; margin-top: var(--space-md); font-size: 0.9rem; color: var(--sage); }
+    .cc-link:hover { color: var(--forest); }
     .item-row {
       display: flex;
       align-items: center;
@@ -16,21 +25,50 @@
       border-bottom: 1px solid rgba(45, 74, 62, 0.08);
     }
     .item-row:last-of-type { border-bottom: none; }
+    .item-row .item-img-wrap { flex-shrink: 0; }
+    .item-row .item-img { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-md); display: block; background: var(--sand); }
     .item-row label { margin-bottom: 0; flex: 1; }
+    .item-row .unidade { font-size: 0.85rem; color: var(--text-soft); font-weight: 400; }
     .item-row input[type="number"] {
       width: 80px;
       min-width: 80px;
+      min-height: 44px;
       text-align: center;
+      font-size: 1rem;
     }
-    .form-divider {
-      margin: var(--space-lg) 0 var(--space-md);
-      padding-top: var(--space-md);
-      border-top: 1px solid rgba(45, 74, 62, 0.12);
+    .form-divider { margin: var(--space-lg) 0 var(--space-md); padding-top: var(--space-md); border-top: 1px solid rgba(45, 74, 62, 0.12); }
+    .form-divider h3 { font-size: 1.1rem; color: var(--forest); margin-bottom: var(--space-md); }
+    .form-group input, .form-group textarea { min-height: 44px; font-size: 16px; }
+    .form-group textarea { min-height: 80px; }
+    .form-msg { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); font-size: 0.95rem; }
+    .form-msg-success { background: rgba(107, 142, 106, 0.15); color: var(--forest); }
+    .form-msg-error { background: rgba(180, 80, 60, 0.1); color: var(--forest-dark); }
+    .cc-user-bar { background: var(--sand); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); margin-bottom: var(--space-md); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
+    .cc-user-bar strong { color: var(--forest); }
+    .cc-pedidos-lista { list-style: none; padding: 0; margin: 0; }
+    .cc-pedidos-lista li { padding: var(--space-md); border: 1px solid rgba(45, 74, 62, 0.12); border-radius: var(--radius-md); margin-bottom: var(--space-sm); background: var(--sand); }
+    .cc-pedidos-lista li.cancelado { opacity: 0.75; }
+    .cc-pedidos-lista .pedido-meta { font-size: 0.85rem; color: var(--text-soft); margin-bottom: var(--space-xs); }
+    .cc-pedidos-lista .pedido-itens { font-size: 0.9rem; margin-bottom: var(--space-sm); }
+    .cc-pedidos-lista .pedido-acoes { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+    .cc-pedidos-lista .pedido-acoes button { padding: var(--space-xs) var(--space-md); font-size: 0.9rem; min-height: 36px; }
+    .cc-modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: var(--space-md); box-sizing: border-box; }
+    .cc-modal[hidden] { display: none; }
+    .cc-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .cc-modal-content { position: relative; max-width: 100%; max-height: 90vh; overflow-y: auto; width: 100%; }
+    .cc-tabs { display: flex; gap: 2px; margin-bottom: var(--space-md); border-bottom: 2px solid var(--sand); }
+    .cc-tab { padding: var(--space-sm) var(--space-md); font-size: 0.95rem; font-weight: 600; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; background: transparent; color: var(--text-soft); cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+    .cc-tab:hover { color: var(--forest); background: rgba(45, 74, 62, 0.06); }
+    .cc-tab.active { color: var(--forest); border-bottom-color: var(--sage); background: rgba(107, 142, 106, 0.08); }
+    .cc-tab-panel { display: none; }
+    .cc-tab-panel.active { display: block; }
+    @media (min-width: 600px) {
+      .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; }
     }
-    .form-divider h3 {
-      font-size: 1.1rem;
-      color: var(--forest);
-      margin-bottom: var(--space-md);
+    @media (min-width: 900px) {
+      .cc-container-narrow { max-width: min(720px, 92vw) !important; }
+      .cc-card { max-width: min(640px, 90vw); }
+      .cc-modal-content { max-width: min(560px, 90vw); max-height: 85vh; }
     }
   </style>
 </head>
@@ -48,110 +86,217 @@
         <li><a href="compras-coletivas.html" class="active">Compra Coletiva</a></li>
         <li><a href="contato.html">Contato</a></li>
       </ul>
+      <button class="theme-toggle" id="themeToggle" aria-label="Usar modo escuro" title="Modo escuro"></button>
     </nav>
   </header>
 
   <main>
-    <!-- Cabeçalho -->
-    <section class="section" style="padding-top: calc(80px + var(--space-2xl));" data-reveal>
-      <div class="container" style="max-width: 700px;">
-        <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); margin-bottom: var(--space-sm);">Rede Agroecológica</p>
-        <h1 style="color: var(--forest); margin-bottom: var(--space-md);">Compra Coletiva Mensal</h1>
-        <p style="font-size: 1.1rem; color: var(--text-soft); line-height: 1.8;">
-          Preencha o formulário indicando as quantidades desejadas. Entraremos em contato para organizar a entrega mensal com produtores da rede.
+    <section class="section cc-section-hero" style="padding-top: calc(80px + var(--space-lg)); padding-bottom: var(--space-lg);" data-reveal>
+      <div class="container cc-container-narrow" style="max-width: 600px;">
+        <p style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--sage); margin-bottom: var(--space-xs);">Rede Agroecológica</p>
+        <h1 style="color: var(--forest); margin-bottom: var(--space-sm); font-size: clamp(1.5rem, 4vw, 2rem);">Compra Coletiva Mensal</h1>
+        <p style="font-size: 1rem; color: var(--text-soft); line-height: 1.7;">
+          Identifique-se com seu número de celular para acessar a lista e fazer seu pedido.
         </p>
       </div>
     </section>
 
-    <!-- Formulário -->
-    <section class="section section-alt">
-      <div class="container" style="max-width: 600px;">
-        <div class="card" data-reveal>
-          <form action="mailto:contato@florestavital.com?subject=Compra%20Coletiva%20-%20Pedido%20Mensal" method="post" enctype="text/plain">
-            <div class="form-divider">
-              <h3>Seus dados</h3>
-            </div>
-            <div class="form-group">
-              <label for="nome">Nome completo *</label>
-              <input type="text" id="nome" name="nome" required placeholder="Seu nome">
-            </div>
-            <div class="form-group">
-              <label for="email">E-mail *</label>
-              <input type="email" id="email" name="email" required placeholder="seu@email.com">
-            </div>
-            <div class="form-group">
-              <label for="telefone">Telefone / WhatsApp *</label>
-              <input type="tel" id="telefone" name="telefone" required placeholder="(00) 00000-0000">
-            </div>
-            <div class="form-group">
-              <label for="bairro">Bairro ou região de retirada</label>
-              <input type="text" id="bairro" name="bairro" placeholder="Onde prefere retirar o pedido">
-            </div>
+    <section class="section section-alt" style="padding-top: var(--space-md); padding-bottom: var(--space-xl);">
+      <div class="container cc-container-narrow" style="max-width: 560px;">
+        <div class="card cc-card" data-reveal>
+          <!-- Passo 1: Celular -->
+          <div id="ccStepPhone" class="cc-section active">
+            <h2 class="cc-step-title">Digite seu número de celular</h2>
+            <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Use o número com DDD. Ex.: (11) 99999-9999</p>
+            <form id="formPhone">
+              <div class="form-group">
+                <label for="telefoneLogin">Celular (WhatsApp) *</label>
+                <input type="tel" id="telefoneLogin" class="cc-phone-input" placeholder="(11) 99999-9999" inputmode="numeric" autocomplete="tel-national" required aria-label="Número de celular">
+              </div>
+              <div id="msgPhone" class="form-msg" role="alert" aria-live="polite"></div>
+              <button type="submit" class="btn btn-primary cc-btn" id="btnContinuar">Continuar</button>
+            </form>
+          </div>
 
-            <div class="form-divider">
-              <h3>Itens da cesta — indique a quantidade desejada (unidades ou kg)</h3>
-              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Deixe 0 para itens que não deseja.</p>
-            </div>
+          <!-- Passo 2: Perfil (só para novo usuário) -->
+          <div id="ccStepProfile" class="cc-section">
+            <h2 class="cc-step-title">Complete seu perfil</h2>
+            <p id="ccProfilePhone" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);"></p>
+            <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Preencha seu nome. Endereço e documento são opcionais.</p>
+            <form id="formProfile">
+              <div class="form-group">
+                <label for="nomePerfil">Nome completo *</label>
+                <input type="text" id="nomePerfil" required placeholder="Seu nome" autocomplete="name" aria-label="Nome completo">
+              </div>
+              <div class="form-group">
+                <label for="enderecoPerfil">Endereço ou bairro (opcional)</label>
+                <input type="text" id="enderecoPerfil" placeholder="Onde prefere retirar" autocomplete="street-address" aria-label="Endereço ou bairro">
+              </div>
+              <div class="form-group">
+                <label for="documentoPerfil">Documento de identificação (opcional)</label>
+                <input type="text" id="documentoPerfil" placeholder="CPF ou RG" autocomplete="off" aria-label="Documento opcional">
+              </div>
+              <div class="form-group">
+                <label for="emailPerfil">E-mail (para receber o código de verificação) *</label>
+                <input type="email" id="emailPerfil" required placeholder="seu@email.com" autocomplete="email" aria-label="E-mail para verificação">
+              </div>
+              <div id="msgProfile" class="form-msg" role="alert" aria-live="polite"></div>
+              <button type="submit" class="btn btn-primary cc-btn" id="btnSalvarPerfil">Salvar e continuar</button>
+            </form>
+          </div>
 
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="arroz">Arroz integral</label>
-              <input type="number" id="arroz" name="arroz_integral" min="0" value="0" placeholder="kg">
+          <!-- Passo 2.5: Verificação por código no e-mail -->
+          <div id="ccStepVerify" class="cc-section">
+            <h2 class="cc-step-title">Confirme seu e-mail</h2>
+            <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Enviaremos um código de 6 dígitos para o e-mail informado. Assim garantimos que o pedido é seu.</p>
+            <div id="ccVerifyEmailDisplay" style="margin-bottom: var(--space-sm);"></div>
+            <div class="form-group" id="ccVerifyEmailInputWrap" style="display: none;">
+              <label for="emailVerify">E-mail para receber o código *</label>
+              <input type="email" id="emailVerify" placeholder="seu@email.com" autocomplete="email" aria-label="E-mail">
             </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="feijao">Feijão</label>
-              <input type="number" id="feijao" name="feijao" min="0" value="0" placeholder="kg">
+            <button type="button" class="btn btn-primary cc-btn" id="ccBtnEnviarCodigo" style="margin-bottom: var(--space-md);">Enviar código por e-mail</button>
+            <div class="form-group" id="ccVerifyCodeWrap" style="display: none;">
+              <label for="codeVerify">Código recebido (6 dígitos) *</label>
+              <input type="text" id="codeVerify" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Código de verificação" style="font-size: 1.25rem; letter-spacing: 0.2em; text-align: center;">
             </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="azeite">Azeite extra virgem</label>
-              <input type="number" id="azeite" name="azeite" min="0" value="0" placeholder="un">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="ovos">Ovos caipira</label>
-              <input type="number" id="ovos" name="ovos" min="0" value="0" placeholder="dúzia">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="frutas">Frutas da época</label>
-              <input type="number" id="frutas" name="frutas" min="0" value="0" placeholder="kg">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="verduras">Verduras e legumes orgânicos</label>
-              <input type="number" id="verduras" name="verduras" min="0" value="0" placeholder="kg">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="mandioca">Mandioca / batata doce</label>
-              <input type="number" id="mandioca" name="mandioca" min="0" value="0" placeholder="kg">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="farinha">Farinha (integral ou mandioca)</label>
-              <input type="number" id="farinha" name="farinha" min="0" value="0" placeholder="kg">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="mel">Mel ou açúcar mascavo</label>
-              <input type="number" id="mel" name="mel" min="0" value="0" placeholder="kg">
-            </div>
-            <div class="item-row form-group" style="margin-bottom: 0;">
-              <label for="cha">Café ou ervas para chá</label>
-              <input type="number" id="cha" name="cafe_ervas" min="0" value="0" placeholder="un">
-            </div>
+            <div id="msgVerify" class="form-msg" role="alert" aria-live="polite"></div>
+            <button type="button" class="btn btn-primary cc-btn" id="ccBtnVerificar" style="display: none;">Verificar e continuar</button>
+          </div>
 
-            <div class="form-group form-divider">
-              <label for="obs">Observações</label>
-              <textarea id="obs" name="observacoes" placeholder="Alergias, preferências, datas de viagem, etc." style="min-height: 80px;"></textarea>
+          <!-- Passo 3: Pedido (logado e verificado) -->
+          <div id="ccStepOrder" class="cc-section">
+            <div class="cc-user-bar">
+              <span><strong id="ccUserName"></strong> · <span id="ccUserPhone"></span></span>
+              <a href="#" id="ccSair" class="cc-link">Sair</a>
             </div>
+            <div class="cc-tabs" role="tablist" aria-label="Fazer pedido, meus pedidos, resumo ou pagamento">
+              <button type="button" class="cc-tab active" role="tab" aria-selected="true" data-cc-tab="fazer">Fazer pedido</button>
+              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="meus">Meus pedidos</button>
+              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="resumo">Resumo</button>
+              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="pagamento">Pagamento</button>
+            </div>
+            <div id="ccTabFazer" class="cc-tab-panel active" role="tabpanel">
+            <form id="formCompraColetiva" novalidate>
+              <div class="form-divider">
+                <h3>Seus dados no pedido</h3>
+              </div>
+              <div class="form-group">
+                <label for="nome">Nome *</label>
+                <input type="text" id="nome" name="nome" required placeholder="Seu nome" autocomplete="name" aria-label="Nome">
+              </div>
+              <div class="form-group">
+                <label for="bairro">Bairro ou região de retirada</label>
+                <input type="text" id="bairro" name="bairro" placeholder="Onde prefere retirar" autocomplete="address-level2" aria-label="Bairro ou região">
+              </div>
+              <div class="form-group">
+                <label for="email">E-mail (opcional)</label>
+                <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" aria-label="E-mail opcional">
+              </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: var(--space-sm);">
-              Entrar na lista de compra coletiva
-            </button>
-          </form>
+              <div class="form-divider">
+                <h3>Itens da cesta</h3>
+                <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Indique as quantidades. Não pode ultrapassar o estoque.</p>
+              </div>
+              <div id="itensCesta">Carregando itens…</div>
+
+              <div class="form-group form-divider">
+                <label for="obs">Observações</label>
+                <textarea id="obs" name="observacoes" placeholder="Alergias, preferências, etc." aria-label="Observações"></textarea>
+              </div>
+
+              <div id="msgCompra" class="form-msg" role="alert" aria-live="polite"></div>
+              <button type="submit" class="btn btn-primary cc-btn" id="btnEnviarCompra">Ver resumo do pedido</button>
+            </form>
+            </div>
+            <div id="ccTabMeus" class="cc-tab-panel" role="tabpanel">
+              <div class="form-divider" id="ccMeusPedidosWrap">
+                <h3>Meus pedidos</h3>
+                <p id="ccMeusPedidosMsg" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Carregando…</p>
+                <ul id="ccMeusPedidosLista" class="cc-pedidos-lista" aria-label="Lista de pedidos"></ul>
+              </div>
+            </div>
+            <div id="ccTabResumo" class="cc-tab-panel" role="tabpanel">
+              <h2 class="cc-step-title">Resumo do pedido</h2>
+              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Confira os itens, escolha entrega ou retirada e a contribuição voluntária.</p>
+              <div id="ccResumoItens" class="form-divider"></div>
+              <div class="form-divider">
+                <h3>Entrega ou retirada</h3>
+                <div class="form-group">
+                  <label><input type="radio" name="ccEntrega" id="ccRetirada" value="retirada" checked> Retirada (sem frete)</label>
+                </div>
+                <div class="form-group" id="ccRegiaoWrap">
+                  <label><input type="radio" name="ccEntrega" id="ccEntregaRegiao" value="regiao"> Entrega por região</label>
+                  <select id="ccSelectRegiao" class="form-group" style="margin-top: var(--space-sm); display: none;" aria-label="Região de entrega">
+                    <option value="">— Selecione a região —</option>
+                  </select>
+                </div>
+                <p id="ccFreteValor" style="font-size: 0.95rem; color: var(--forest); margin-top: var(--space-sm);"></p>
+              </div>
+              <div class="form-divider">
+                <h3>Contribuição voluntária (%)</h3>
+                <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Sugestões:</p>
+                <div id="ccContribSugestoes" style="display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-sm);"></div>
+                <div class="form-group">
+                  <label for="ccContribInput">Ou informe um valor (%):</label>
+                  <input type="number" id="ccContribInput" min="0" step="0.5" value="0" style="max-width: 100px;" aria-label="Contribuição percentual">
+                </div>
+              </div>
+              <div id="ccResumoTotais" class="form-divider" style="font-size: 1rem;"></div>
+              <div id="msgResumo" class="form-msg" role="alert" aria-live="polite" style="display: none;"></div>
+              <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="ccBtnVoltarCesta">Voltar à cesta</button>
+                <button type="button" class="btn btn-primary cc-btn" id="ccBtnIrPagamento">Ir para pagamento</button>
+              </div>
+            </div>
+            <div id="ccTabPagamento" class="cc-tab-panel" role="tabpanel">
+              <h2 class="cc-step-title">Pagamento</h2>
+              <p id="ccPagamentoTotal" style="font-size: 1.1rem; color: var(--forest); font-weight: 600; margin-bottom: var(--space-md);"></p>
+              <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Seu pedido já foi registrado. Entraremos em contato para combinar a forma de pagamento.</p>
+              <div id="ccPagamentoOpcoes" class="form-divider">
+                <p style="font-size: 0.9rem;">PIX: desconto conforme instituição. Outras opções em breve.</p>
+              </div>
+              <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="ccBtnVoltarResumo">Voltar ao resumo</button>
+                <button type="button" class="btn btn-primary cc-btn" id="ccBtnConcluir">Concluído</button>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+        <!-- Modal editar pedido -->
+        <div id="ccModalEditar" class="cc-modal" role="dialog" aria-labelledby="ccModalEditarTitle" aria-modal="true" hidden>
+          <div class="cc-modal-backdrop" id="ccModalEditarBackdrop"></div>
+          <div class="cc-modal-content card">
+            <h2 id="ccModalEditarTitle" class="cc-step-title">Editar pedido</h2>
+            <p id="ccModalEditarOrderId" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);"></p>
+            <form id="formEditarPedido" novalidate>
+              <div class="form-group">
+                <label for="editBairro">Bairro ou região de retirada</label>
+                <input type="text" id="editBairro" placeholder="Onde prefere retirar" aria-label="Bairro">
+              </div>
+              <div class="form-group">
+                <label for="editObs">Observações</label>
+                <textarea id="editObs" placeholder="Alergias, preferências, etc." aria-label="Observações" rows="2"></textarea>
+              </div>
+              <div class="form-divider">
+                <h3>Quantidades</h3>
+              </div>
+              <div id="ccEditItensContainer"></div>
+              <div id="msgEditPedido" class="form-msg" role="alert" aria-live="polite"></div>
+              <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-md);">
+                <button type="button" class="btn btn-secondary" id="ccModalEditarFechar">Fechar</button>
+                <button type="submit" class="btn btn-primary" id="btnSalvarEdicao">Salvar alterações</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Info -->
-    <section class="section">
-      <div class="container" style="max-width: 600px; text-align: center;" data-reveal>
-        <p style="color: var(--text-soft); font-size: 0.95rem;">
-          Os valores e a disponibilidade variam conforme a safra e os produtores da rede. Após o envio, nossa equipe entrará em contato para confirmar seu pedido e combinar o valor e o ponto de retirada.
+    <section class="section" style="padding-top: 0;">
+      <div class="container" style="max-width: 560px; text-align: center;" data-reveal>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">
+          Após o envio, entraremos em contato para confirmar e combinar valor e ponto de retirada.
         </p>
       </div>
     </section>
@@ -164,33 +309,38 @@
         <p style="opacity: 0.9; font-size: 0.9rem;">Rede Agroecológica Regenerativa</p>
       </div>
       <div>
-        <p style="font-size: 0.9rem; margin-bottom: var(--space-xs);"><a href="mailto:contato@florestavital.com">contato@florestavital.com</a></p>
-        <p style="font-size: 0.9rem;">@floresta.vital</p>
+        <p style="font-size: 0.9rem;"><a href="mailto:contato@florestavital.com">contato@florestavital.com</a></p>
       </div>
     </div>
-    <p style="text-align: center; margin-top: var(--space-lg); font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital — Cultivando o Futuro</p>
+    <p style="text-align: center; margin-top: var(--space-lg); font-size: 0.85rem; opacity: 0.8;">© 2025 Floresta Vital</p>
   </footer>
 
+  <script src="js/config.js"></script>
   <script src="js/animations.js"></script>
+  <script src="js/compras-coletivas.js"></script>
+  <script src="js/theme.js"></script>
   <script>
-    window.addEventListener('scroll', () => {
-      document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
+    window.addEventListener('scroll', function () {
+      var h = document.getElementById('header');
+      if (h) h.classList.toggle('scrolled', window.scrollY > 20);
     });
     var toggle = document.getElementById('menuToggle');
     var nav = document.getElementById('navLinks');
-    function closeMenu() {
-      toggle.classList.remove('active');
-      toggle.setAttribute('aria-expanded', 'false');
-      nav.classList.remove('open');
-      document.body.style.overflow = '';
+    if (toggle && nav) {
+      function closeMenu() {
+        toggle.classList.remove('active');
+        toggle.setAttribute('aria-expanded', 'false');
+        nav.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+      toggle.addEventListener('click', function () {
+        this.classList.toggle('active');
+        this.setAttribute('aria-expanded', this.classList.contains('active'));
+        nav.classList.toggle('open');
+        document.body.style.overflow = this.classList.contains('active') ? 'hidden' : '';
+      });
+      nav.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', closeMenu); });
     }
-    toggle.addEventListener('click', function() {
-      this.classList.toggle('active');
-      this.setAttribute('aria-expanded', this.classList.contains('active'));
-      nav.classList.toggle('open');
-      document.body.style.overflow = this.classList.contains('active') ? 'hidden' : '';
-    });
-    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
   </script>
 </body>
 </html>

@@ -1,0 +1,22 @@
+{
+  "name": "florestavital",
+  "version": "1.0.0",
+  "description": "Floresta Vital - Rede Agroecológica Regenerativa",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "projects": [
+      { "displayName": "apps-script", "testMatch": ["<rootDir>/google-apps-script/__tests__/**/*.test.js"], "testEnvironment": "node" },
+      { "displayName": "js", "testMatch": ["<rootDir>/js/__tests__/**/*.test.js"], "testEnvironment": "jsdom" },
+      { "displayName": "workers", "testMatch": ["<rootDir>/workers/__tests__/**/*.test.js"], "testEnvironment": "node" }
+    ]
+  }
+}

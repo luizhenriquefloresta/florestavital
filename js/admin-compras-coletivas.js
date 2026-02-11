@@ -1,0 +1,901 @@
+/**
+ * Admin Compra Coletiva - Login por token, gestão de itens e visualização de pedidos.
+ * Token não fica no código; o usuário digita na tela de login (guardado em sessionStorage).
+ */
+(function () {
+  var STORAGE_TOKEN = 'admin_cc_token';
+  var apiBase = typeof COMPRAS_COLETIVAS_API !== 'undefined' ? COMPRAS_COLETIVAS_API : '';
+
+  var elLogin = document.getElementById('adminLogin');
+  var elPainel = document.getElementById('adminPainel');
+  var elTokenInput = document.getElementById('adminToken');
+  var elBtnEntrar = document.getElementById('adminBtnEntrar');
+  var elBtnSair = document.getElementById('adminBtnSair');
+  var elMsg = document.getElementById('adminMsg');
+  var elItensTable = document.getElementById('adminItensTable');
+  var elBtnSalvar = document.getElementById('adminBtnSalvar');
+  var elOrdersTable = document.getElementById('adminOrdersTable');
+  var elBtnExportCsv = document.getElementById('adminBtnExportCsv');
+  var elResumoItens = document.getElementById('adminResumoItens');
+  var elBtnSalvarBackup = document.getElementById('adminBtnSalvarBackup');
+  var elSelectBackup = document.getElementById('adminSelectBackup');
+  var elBtnCarregarBackups = document.getElementById('adminBtnCarregarBackups');
+  var elBtnRestaurarBackup = document.getElementById('adminBtnRestaurarBackup');
+  var elBackupMsg = document.getElementById('adminBackupMsg');
+  var elNewId = null;
+
+  function apiUrl(params) {
+    var base = apiBase || '';
+    var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    if (!q) return base;
+    return base.indexOf('?') >= 0 ? base + '&' + q : base + '?' + q;
+  }
+  function backupUrl(action, token) {
+    var base = (apiBase || '').replace(/\/$/, '');
+    var sep = base.indexOf('?') >= 0 ? '&' : '?';
+    return base + sep + 'action=' + encodeURIComponent(action) + (token ? '&token=' + encodeURIComponent(token) : '');
+  }
+  var elNewNome = null;
+  var elNewUnidade = null;
+  var elNewAtivo = null;
+  var elNewEstoque = null;
+  var elNewPreco = null;
+  var elNewOrdem = null;
+  var elNewImagem = null;
+
+  function getToken() {
+    return sessionStorage.getItem(STORAGE_TOKEN) || '';
+  }
+
+  function setToken(t) {
+    if (t) sessionStorage.setItem(STORAGE_TOKEN, t);
+    else sessionStorage.removeItem(STORAGE_TOKEN);
+  }
+
+  function showMsg(text, isError) {
+    if (!elMsg) return;
+    elMsg.textContent = text;
+    elMsg.className = 'admin-msg ' + (isError ? 'admin-msg-error' : 'admin-msg-ok');
+    elMsg.setAttribute('aria-live', 'polite');
+  }
+
+  function showPainel(show) {
+    if (elLogin) elLogin.style.display = show ? 'none' : 'block';
+    if (elPainel) elPainel.style.display = show ? 'block' : 'none';
+  }
+
+  function checkAuth() {
+    var token = getToken();
+    if (!token) {
+      showPainel(false);
+      return;
+    }
+    fetch(apiBase + '?action=verify&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showPainel(true);
+          loadItens();
+          loadOrders();
+        } else {
+          setToken('');
+          showPainel(false);
+          showMsg('Token inválido ou expirado.', true);
+        }
+      })
+      .catch(function () {
+        setToken('');
+        showPainel(false);
+        showMsg('Erro de conexão. Verifique a URL da API em js/config.js.', true);
+      });
+  }
+
+  function login(e) {
+    e.preventDefault();
+    var token = (elTokenInput && elTokenInput.value || '').trim();
+    if (!token) {
+      showMsg('Digite o token de administrador.', true);
+      return;
+    }
+    fetch(apiBase + '?action=verify&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          setToken(token);
+          showMsg('');
+          showPainel(true);
+          loadItens();
+          loadOrders();
+        } else {
+          showMsg('Token inválido.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  function logout() {
+    setToken('');
+    showPainel(false);
+    if (elTokenInput) elTokenInput.value = '';
+    showMsg('');
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  var currentItems = [];
+
+  function getNewItemInputs() {
+    return {
+      id: document.getElementById('adminNewId'),
+      nome: document.getElementById('adminNewNome'),
+      unidade: document.getElementById('adminNewUnidade'),
+      ativo: document.getElementById('adminNewAtivo'),
+      estoque: document.getElementById('adminNewEstoque'),
+      preco: document.getElementById('adminNewPreco'),
+      ordem: document.getElementById('adminNewOrdem'),
+      imagem: document.getElementById('adminNewImagem')
+    };
+  }
+
+  function renderNewItemRow() {
+    var tr = document.createElement('tr');
+    tr.className = 'admin-new-item-row';
+    tr.innerHTML =
+      '<td><input type="text" id="adminNewId" class="admin-input" placeholder="ex: cebola" style="width:100%;min-width:60px" aria-label="Id do novo item"></td>' +
+      '<td><input type="text" id="adminNewNome" class="admin-input" placeholder="Nome" style="width:100%" aria-label="Nome"></td>' +
+      '<td><input type="text" id="adminNewUnidade" class="admin-input" placeholder="kg" style="width:70px" aria-label="Unidade"></td>' +
+      '<td><input type="checkbox" id="adminNewAtivo" checked aria-label="Ativo"></td>' +
+      '<td><input type="number" id="adminNewEstoque" class="admin-input" min="0" value="0" style="width:70px" aria-label="Estoque"></td>' +
+      '<td><input type="number" id="adminNewPreco" class="admin-input" min="0" step="0.01" value="0" style="width:70px" aria-label="Preço"></td>' +
+      '<td><input type="number" id="adminNewOrdem" class="admin-input" min="0" value="0" style="width:50px" aria-label="Ordem"></td>' +
+      '<td><input type="url" id="adminNewImagem" class="admin-input" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>' +
+      '<td><button type="button" class="btn btn-primary btn-sm" id="adminBtnAdicionarItem">Adicionar</button></td>';
+    return tr;
+  }
+
+  function renderItens(items) {
+    items = (items || []).filter(function (it) {
+      return (it.id || '').toString().trim() !== '';
+    });
+    currentItems = items;
+    if (!elItensTable) return;
+    var tbody = elItensTable.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    tbody.appendChild(renderNewItemRow());
+    if (items.length === 0) {
+      var emptyTr = document.createElement('tr');
+      emptyTr.innerHTML = '<td colspan="9" style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item na planilha.</td>';
+      tbody.appendChild(emptyTr);
+      return;
+    }
+    items.forEach(function (it) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><code>' + escapeHtml(it.id) + '</code></td>' +
+        '<td><input type="text" class="admin-input admin-nome" value="' + escapeHtml(it.nome) + '" data-id="' + escapeHtml(it.id) + '" aria-label="Nome do item"></td>' +
+        '<td><input type="text" class="admin-input admin-unidade" value="' + escapeHtml(it.unidade) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Unidade"></td>' +
+        '<td><input type="checkbox" class="admin-ativo" ' + (it.ativo ? 'checked' : '') + ' data-id="' + escapeHtml(it.id) + '" aria-label="Item ativo"></td>' +
+        '<td><input type="number" min="0" class="admin-input admin-estoque" value="' + (it.estoque || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Estoque"></td>' +
+        '<td><input type="number" min="0" step="0.01" class="admin-input admin-preco" value="' + (it.preco || '') + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Preço"></td>' +
+        '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>' +
+        '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>' +
+        '<td><button type="button" class="btn btn-secondary btn-sm admin-btn-excluir-item" data-item-id="' + escapeHtml(it.id) + '" aria-label="Excluir item ' + escapeHtml(it.nome) + '">Excluir</button></td>';
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.admin-btn-excluir-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-item-id');
+        if (!id) return;
+        if (!confirm('Excluir o item "' + id + '" do catálogo? Clique em "Salvar alterações" para gravar na planilha.')) return;
+        currentItems = (currentItems || []).filter(function (it) { return (it.id || '') !== id; });
+        renderItens(currentItems);
+        showMsg('Item removido da lista. Clique em "Salvar alterações" para gravar na planilha.', false);
+      });
+    });
+    renderNovoPedidoItens();
+  }
+
+  var elNovoPedidoItens = null;
+
+  function renderNovoPedidoItens() {
+    elNovoPedidoItens = document.getElementById('adminNovoPedidoItens');
+    if (!elNovoPedidoItens) return;
+    var ativos = (currentItems || []).filter(function (it) { return it.ativo; });
+    elNovoPedidoItens.innerHTML = '';
+    if (ativos.length === 0) {
+      elNovoPedidoItens.innerHTML = '<p style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item ativo. Ative itens no catálogo abaixo.</p>';
+      return;
+    }
+    ativos.forEach(function (it) {
+      var safeId = String(it.id || '').replace(/[^a-zA-Z0-9-_]/g, '_');
+      var row = document.createElement('div');
+      row.className = 'admin-new-order-item-row';
+      row.innerHTML =
+        '<label for="adminQty-' + safeId + '">' + escapeHtml(it.nome) + ' <span style="color: var(--text-soft);">(' + escapeHtml(it.id) + ')</span></label>' +
+        '<input type="number" min="0" id="adminQty-' + safeId + '" class="admin-input admin-novo-pedido-qty" data-item-id="' + escapeHtml(it.id) + '" value="0" aria-label="Quantidade ' + escapeHtml(it.nome) + '">';
+      elNovoPedidoItens.appendChild(row);
+    });
+  }
+
+  function setMainTab(panel) {
+    ['adminPanelNew', 'adminPanelList', 'adminPanelCatalog', 'adminPanelResumo', 'adminPanelRegiao'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) {
+        var key = id.replace('adminPanel', '').toLowerCase();
+        el.classList.toggle('active', key === panel);
+      }
+    });
+    document.querySelectorAll('.admin-main-tab').forEach(function (t) {
+      var tabPanel = t.getAttribute('data-main-tab');
+      var active = tabPanel === panel;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (panel === 'regiao') {
+      loadRegioes();
+      loadOrderConfig();
+    }
+  }
+
+  var currentRegioes = [];
+
+  function loadRegioes() {
+    fetch(apiBase + '?action=regioes')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.regioes) {
+          currentRegioes = data.regioes;
+          renderRegioesTable();
+        } else {
+          currentRegioes = [];
+          renderRegioesTable();
+        }
+      })
+      .catch(function () {
+        currentRegioes = [];
+        renderRegioesTable();
+      });
+  }
+
+  function renderRegioesTable() {
+    var table = document.getElementById('adminRegioesTable');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    var list = (currentRegioes || []).slice();
+    list.push({ regiao: '', frete: '' });
+    list.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><input type="text" class="admin-input admin-regiao-nome" value="' + escapeHtml(r.regiao) + '" placeholder="Ex: Zona Norte" aria-label="Região"></td>' +
+        '<td><input type="number" min="0" step="0.01" class="admin-input admin-regiao-frete" value="' + (r.frete !== '' && r.frete !== undefined ? r.frete : '') + '" placeholder="0" style="width:90px" aria-label="Frete R$"></td>' +
+        '<td><button type="button" class="btn btn-secondary btn-sm admin-btn-excluir-regiao" aria-label="Excluir">Excluir</button></td>';
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.admin-btn-excluir-regiao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tr = btn.closest('tr');
+        if (tr) tr.remove();
+      });
+    });
+  }
+
+  function saveRegioes() {
+    var table = document.getElementById('adminRegioesTable');
+    if (!table) return;
+    var rows = table.querySelectorAll('tbody tr');
+    var regioes = [];
+    for (var i = 0; i < rows.length; i++) {
+      var nome = (rows[i].querySelector('.admin-regiao-nome') && rows[i].querySelector('.admin-regiao-nome').value || '').trim();
+      if (!nome) continue;
+      var frete = parseFloat(rows[i].querySelector('.admin-regiao-frete') && rows[i].querySelector('.admin-regiao-frete').value) || 0;
+      regioes.push({ regiao: nome, frete: frete });
+    }
+    var token = getToken();
+    if (!token) return logout();
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'adminRegioes', token: token, regioes: regioes })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showMsg('Regiões salvas.', false);
+          loadRegioes();
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar regiões.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  function loadOrderConfig() {
+    fetch(apiBase + '?action=orderConfig')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          var pct = document.getElementById('adminCustoAdminPct');
+          var contrib = document.getElementById('adminContribSugerida');
+          if (pct) pct.value = data.custoAdministrativoPercentual || 0;
+          if (contrib) contrib.value = Array.isArray(data.contribuicaoSugerida) ? data.contribuicaoSugerida.join(', ') : (data.contribuicaoSugerida || '0, 2, 5');
+        }
+      })
+      .catch(function () {});
+  }
+
+  function saveOrderConfig(e) {
+    e.preventDefault();
+    var pct = document.getElementById('adminCustoAdminPct');
+    var contrib = document.getElementById('adminContribSugerida');
+    var custo = parseFloat(pct && pct.value) || 0;
+    var contribStr = (contrib && contrib.value || '0, 2, 5').trim();
+    var token = getToken();
+    if (!token) return logout();
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'adminOrderConfig',
+        token: token,
+        custoAdministrativoPercentual: custo,
+        contribuicaoSugerida: contribStr
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          showMsg('Config do resumo salva.', false);
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar config.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  function submitNovoPedido(e) {
+    e.preventDefault();
+    var nome = (document.getElementById('adminNovoPedidoNome') && document.getElementById('adminNovoPedidoNome').value || '').trim();
+    var email = (document.getElementById('adminNovoPedidoEmail') && document.getElementById('adminNovoPedidoEmail').value || '').trim();
+    var telefone = (document.getElementById('adminNovoPedidoTelefone') && document.getElementById('adminNovoPedidoTelefone').value || '').trim();
+    var bairro = (document.getElementById('adminNovoPedidoBairro') && document.getElementById('adminNovoPedidoBairro').value || '').trim();
+    var observacoes = (document.getElementById('adminNovoPedidoObs') && document.getElementById('adminNovoPedidoObs').value || '').trim();
+    if (!nome || !telefone) {
+      showMsg('Preencha nome e telefone.', true);
+      return;
+    }
+    var itens = {};
+    document.querySelectorAll('.admin-novo-pedido-qty').forEach(function (inp) {
+      var id = inp.getAttribute('data-item-id');
+      var qty = parseInt(inp.value, 10) || 0;
+      if (id && qty > 0) itens[id] = qty;
+    });
+    if (Object.keys(itens).length === 0) {
+      showMsg('Informe a quantidade de pelo menos um item.', true);
+      return;
+    }
+    showMsg('Salvando pedido…', false);
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'order', nome: nome, email: email, telefone: telefone, bairro: bairro, observacoes: observacoes, itens: itens })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.orderId) {
+          showMsg('Pedido registrado: ' + data.orderId + '. Veja na aba Pedidos.', false);
+          if (document.getElementById('adminFormNovoPedido')) {
+            document.getElementById('adminFormNovoPedido').reset();
+            document.querySelectorAll('.admin-novo-pedido-qty').forEach(function (inp) { inp.value = '0'; });
+          }
+          loadOrders();
+          setMainTab('list');
+        } else {
+          showMsg((data && data.error) || 'Erro ao registrar pedido.', true);
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão ao registrar pedido.', true);
+      });
+  }
+
+  function addNewItemRow() {
+    var inps = getNewItemInputs();
+    var id = (inps.id && inps.id.value || '').toString().trim();
+    if (!id) {
+      showMsg('Informe o Id do novo item (ex: cebola).', true);
+      if (inps.id) inps.id.focus();
+      return;
+    }
+    var nome = (inps.nome && inps.nome.value || '').trim();
+    var unidade = (inps.unidade && inps.unidade.value || '').trim() || 'un';
+    var ativo = inps.ativo ? inps.ativo.checked : true;
+    var estoque = parseInt(inps.estoque && inps.estoque.value, 10);
+    var preco = parseFloat(inps.preco && inps.preco.value);
+    var ordem = parseInt(inps.ordem && inps.ordem.value, 10);
+    var imagem = (inps.imagem && inps.imagem.value || '').trim();
+    if (isNaN(estoque)) estoque = 0;
+    if (isNaN(preco)) preco = 0;
+    if (isNaN(ordem)) ordem = 0;
+    var it = { id: id, nome: nome, unidade: unidade, ativo: ativo, estoque: estoque, preco: preco, ordem: ordem, imagem: imagem };
+    currentItems.push(it);
+    renderItens(currentItems);
+    showMsg('Item adicionado à lista. Clique em "Salvar alterações" para gravar na planilha.', false);
+  }
+
+  function loadItens() {
+    var token = getToken();
+    if (!token) return;
+    fetch(apiBase + '?action=adminItems&token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.items) {
+          renderItens(data.items);
+        } else {
+          renderItens([]);
+          showMsg('Não foi possível carregar itens.', true);
+        }
+      })
+      .catch(function () {
+        renderItens([]);
+        showMsg('Erro ao carregar itens.', true);
+      });
+  }
+
+  function collectItemsFromForm() {
+    var rows = elItensTable && elItensTable.querySelectorAll('tbody tr');
+    if (!rows || rows.length === 0) return currentItems.map(function (it) {
+      return { id: it.id, nome: it.nome, unidade: it.unidade, ativo: it.ativo, estoque: it.estoque, preco: it.preco, ordem: it.ordem, imagem: it.imagem || '' };
+    });
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].classList && rows[i].classList.contains('admin-new-item-row')) continue;
+      var id = rows[i].querySelector('[data-id]') && rows[i].querySelector('[data-id]').getAttribute('data-id');
+      if (!id) continue;
+      var nome = (rows[i].querySelector('.admin-nome') && rows[i].querySelector('.admin-nome').value || '').trim();
+      var unidade = (rows[i].querySelector('.admin-unidade') && rows[i].querySelector('.admin-unidade').value || '').trim();
+      var ativo = rows[i].querySelector('.admin-ativo') && rows[i].querySelector('.admin-ativo').checked;
+      var estoque = parseInt(rows[i].querySelector('.admin-estoque') && rows[i].querySelector('.admin-estoque').value, 10);
+      var preco = parseFloat(rows[i].querySelector('.admin-preco') && rows[i].querySelector('.admin-preco').value);
+      var ordem = parseInt(rows[i].querySelector('.admin-ordem') && rows[i].querySelector('.admin-ordem').value, 10);
+      var imagem = (rows[i].querySelector('.admin-imagem') && rows[i].querySelector('.admin-imagem').value || '').trim();
+      out.push({
+        id: id,
+        nome: nome,
+        unidade: unidade,
+        ativo: ativo,
+        estoque: isNaN(estoque) ? 0 : estoque,
+        preco: isNaN(preco) ? 0 : preco,
+        ordem: isNaN(ordem) ? 0 : ordem,
+        imagem: imagem
+      });
+    }
+    return out;
+  }
+
+  function saveItens(e) {
+    e.preventDefault();
+    var token = getToken();
+    if (!token) return logout();
+    var items = collectItemsFromForm();
+    if (items.length === 0) {
+      showMsg('Nenhum item para salvar.', true);
+      return;
+    }
+    elBtnSalvar.disabled = true;
+    elBtnSalvar.textContent = 'Salvando…';
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'adminItems', token: token, items: items })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        elBtnSalvar.disabled = false;
+        elBtnSalvar.textContent = 'Salvar alterações';
+        if (data && data.ok) {
+          showMsg('Alterações salvas com sucesso.', false);
+          loadItens();
+        } else {
+          showMsg((data && data.error) || 'Erro ao salvar.', true);
+        }
+      })
+      .catch(function () {
+        elBtnSalvar.disabled = false;
+        elBtnSalvar.textContent = 'Salvar alterações';
+        showMsg('Erro de conexão.', true);
+      });
+  }
+
+  var currentOrders = [];
+  var ordersTabFilter = '';
+
+  function getOrdersForTab() {
+    if (!ordersTabFilter) return currentOrders;
+    return currentOrders.filter(function (o) {
+      var s = (o.status || '').toLowerCase();
+      return s === ordersTabFilter;
+    });
+  }
+
+  function setOrdersTab(filter) {
+    ordersTabFilter = filter;
+    var tabs = document.querySelectorAll('.admin-orders-tabs .admin-tab');
+    tabs.forEach(function (t) {
+      var isActive = (t.getAttribute('data-orders-tab') || '') === (filter || '');
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    renderOrders(getOrdersForTab());
+  }
+
+  function loadOrders() {
+    var token = getToken();
+    if (!token) return;
+    fetch(apiBase + '?action=orders&token=' + encodeURIComponent(token) + '&limit=20')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.orders) {
+          currentOrders = data.orders;
+          renderOrders(getOrdersForTab());
+          renderResumoItens(data.orders);
+        } else {
+          currentOrders = [];
+          renderOrders([]);
+          renderResumoItens([]);
+        }
+      })
+      .catch(function () {
+        currentOrders = [];
+        renderOrders([]);
+        renderResumoItens([]);
+      });
+  }
+
+  function renderResumoItens(orders) {
+    if (!elResumoItens) return;
+    var totals = {};
+    orders.forEach(function (o) {
+      var it;
+      try {
+        it = typeof o.itens === 'string' ? JSON.parse(o.itens) : (o.itens || {});
+      } catch (e) { it = {}; }
+      for (var k in it) if (it.hasOwnProperty(k)) {
+        totals[k] = (totals[k] || 0) + (parseInt(it[k], 10) || 0);
+      }
+    });
+    var keys = Object.keys(totals).sort();
+    if (keys.length === 0) {
+      elResumoItens.innerHTML = '<p style="color: var(--text-soft); font-size: 0.9rem;">Nenhum item nos últimos pedidos.</p>';
+      return;
+    }
+    var html = '<table class="admin-table"><thead><tr><th>Item (id)</th><th>Total qtd.</th></tr></thead><tbody>';
+    keys.forEach(function (k) {
+      html += '<tr><td><code>' + escapeHtml(k) + '</code></td><td>' + totals[k] + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    elResumoItens.innerHTML = '<p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Resumo agregado pelos últimos 20 pedidos:</p>' + html;
+  }
+
+  function statusLabel(s) {
+    if (!s) return 'Ativo';
+    s = String(s).toLowerCase();
+    if (s === 'cancelado') return 'Cancelado';
+    if (s === 'separado') return 'Separado';
+    if (s === 'entregue') return 'Entregue';
+    return 'Ativo';
+  }
+
+  function statusBadgeClass(s) {
+    s = (s || '').toString().toLowerCase();
+    if (s === 'cancelado') return 'admin-status-cancelado';
+    if (s === 'separado') return 'admin-status-separado';
+    if (s === 'entregue') return 'admin-status-entregue';
+    return 'admin-status-ativo';
+  }
+
+  function renderOrders(orders) {
+    var tbody = elOrdersTable && elOrdersTable.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!orders || orders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9">Nenhum pedido recente.</td></tr>';
+      return;
+    }
+    orders.forEach(function (o) {
+      if (!(o.orderId && String(o.orderId).trim())) return;
+      var itensStr = '';
+      try {
+        var it = typeof o.itens === 'string' ? JSON.parse(o.itens) : (o.itens || {});
+        itensStr = Object.keys(it).map(function (k) { return k + ': ' + it[k]; }).join('; ');
+      } catch (e) {
+        itensStr = o.itens || '';
+      }
+      var status = (o.status || '').toLowerCase();
+      var statusBadge = '<span class="admin-status-badge ' + statusBadgeClass(o.status) + '">' + escapeHtml(statusLabel(o.status)) + '</span>';
+      var acoes = '';
+      if (status === 'ativo') {
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado admin-acoes-next" data-order-id="' + escapeHtml(o.orderId) + '" title="Pedido entra na aba Pedidos separados">→ Separado</button>';
+      } else if (status === 'separado') {
+        acoes = '<button type="button" class="btn btn-primary admin-btn-entregue admin-acoes-next" data-order-id="' + escapeHtml(o.orderId) + '" title="Pedido entra na aba Pedidos entregues">→ Entregue</button>';
+      } else if (status === 'entregue') {
+        acoes = '<span class="admin-acoes-done" title="Pedido na aba Pedidos entregues">✓ Entregue</span>';
+      } else if (status === 'cancelado') {
+        acoes = '<span class="admin-acoes-done">Cancelado</span>';
+      } else {
+        acoes = '<button type="button" class="btn btn-secondary admin-btn-separado" data-order-id="' + escapeHtml(o.orderId) + '">→ Separado</button>';
+      }
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-status', status);
+      tr.innerHTML =
+        '<td><code>' + escapeHtml(o.orderId) + '</code></td>' +
+        '<td>' + escapeHtml(o.timestamp) + '</td>' +
+        '<td>' + escapeHtml(o.nome) + '</td>' +
+        '<td>' + escapeHtml(o.email) + '</td>' +
+        '<td>' + escapeHtml(o.telefone) + '</td>' +
+        '<td>' + escapeHtml(o.bairro) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td style="font-size:0.85rem;">' + escapeHtml(itensStr) + '</td>' +
+        '<td class="admin-cell-acoes">' + acoes + '</td>';
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.admin-btn-separado').forEach(function (btn) {
+      btn.addEventListener('click', function () { setOrderStatus(btn.getAttribute('data-order-id'), 'separado', btn); });
+    });
+    tbody.querySelectorAll('.admin-btn-entregue').forEach(function (btn) {
+      btn.addEventListener('click', function () { setOrderStatus(btn.getAttribute('data-order-id'), 'entregue', btn); });
+    });
+  }
+
+  function setOrderStatus(orderId, status, clickedBtn) {
+    var token = getToken();
+    if (!token) return logout();
+    if (clickedBtn) {
+      clickedBtn.disabled = true;
+      clickedBtn.textContent = 'Salvando…';
+    }
+    var sep = apiBase.indexOf('?') >= 0 ? '&' : '?';
+    var urlWithAction = apiBase + sep + 'action=updateOrderStatus';
+    var body = { action: 'updateOrderStatus', token: token, orderId: orderId, status: status };
+    fetch(urlWithAction, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          var msg = status === 'separado'
+            ? 'Status: Separado. Pedido na aba "Pedidos separados".'
+            : 'Status: Entregue. Pedido na aba "Pedidos entregues".';
+          showMsg(msg, false);
+          loadOrders();
+        } else {
+          var errMsg = (data && data.error) || 'Erro ao atualizar status.';
+          if (data && data.received !== undefined && data.received !== null) {
+            errMsg += ' (recebido: "' + String(data.received) + '")';
+          }
+          showMsg(errMsg, true);
+          if (clickedBtn) {
+            clickedBtn.disabled = false;
+            clickedBtn.textContent = status === 'separado' ? '→ Separado' : '→ Entregue';
+          }
+        }
+      })
+      .catch(function () {
+        showMsg('Erro de conexão. Verifique js/config.js e se o backend foi implantado (nova versão).', true);
+        if (clickedBtn) {
+          clickedBtn.disabled = false;
+          clickedBtn.textContent = status === 'separado' ? '→ Separado' : '→ Entregue';
+        }
+      });
+  }
+
+  function showBackupMsg(text, isError) {
+    if (!elBackupMsg) return;
+    elBackupMsg.textContent = text;
+    elBackupMsg.className = 'admin-msg ' + (isError ? 'admin-msg-error' : 'admin-msg-ok');
+    elBackupMsg.style.display = text ? 'block' : 'none';
+  }
+
+  function loadBackups() {
+    var token = getToken();
+    if (!token || !elSelectBackup) return;
+    elSelectBackup.innerHTML = '<option value="">Carregando…</option>';
+    showBackupMsg('');
+    fetch(backupUrl('listBackups', token))
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { ok: r.ok, data: data };
+        }).catch(function () {
+          return { ok: false, data: { error: 'Resposta inválida' } };
+        });
+      })
+      .then(function (res) {
+        var data = res.data;
+        elSelectBackup.innerHTML = '<option value="">— Escolha um backup —</option>';
+        if (res.ok && data && data.ok && data.backups && data.backups.length > 0) {
+          data.backups.forEach(function (b) {
+            var opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = (b.name || b.id) + (b.date ? ' (' + b.date.slice(0, 10) + ')' : '');
+            elSelectBackup.appendChild(opt);
+          });
+        } else if (data && data.error) {
+          var err = data.error;
+          if (err.indexOf('Unknown action') !== -1) {
+            showBackupMsg('Backend não reconheceu a ação. Atualize o deploy do Apps Script e do Worker (docs/DEPLOY-APPS-SCRIPT.md).', true);
+          } else {
+            showBackupMsg('Lista de backups: ' + err, true);
+          }
+        }
+      })
+      .catch(function () {
+        elSelectBackup.innerHTML = '<option value="">Erro ao carregar</option>';
+        showBackupMsg('Erro de conexão ao carregar backups.', true);
+      });
+  }
+
+  function saveBackup() {
+    var token = getToken();
+    if (!token) return logout();
+    if (elBtnSalvarBackup) {
+      elBtnSalvarBackup.disabled = true;
+      elBtnSalvarBackup.textContent = 'Salvando…';
+    }
+    showBackupMsg('');
+    fetch(backupUrl('saveBackup', token))
+      .then(function (r) {
+        return r.json().then(function (data) {
+          return { ok: r.ok, data: data };
+        }).catch(function () {
+          return { ok: false, data: { error: r.status ? 'Erro ' + r.status + ' no servidor.' : 'Resposta inválida.' } };
+        });
+      })
+      .then(function (res) {
+        if (elBtnSalvarBackup) {
+          elBtnSalvarBackup.disabled = false;
+          elBtnSalvarBackup.textContent = 'Salvar backup';
+        }
+        var data = res.data;
+        if (res.ok && data && data.ok) {
+          showBackupMsg('Backup criado: ' + (data.name || '') + '. ' + (data.url ? 'Abre no Drive: ' + data.url : ''), false);
+          loadBackups();
+        } else {
+          var err = (data && data.error) || 'Erro ao criar backup.';
+          if (err.indexOf('Unknown action') !== -1) {
+            err = 'Backend não reconheceu a ação. Atualize o deploy do Apps Script e do Worker (veja docs).';
+          }
+          showBackupMsg(err, true);
+        }
+      })
+      .catch(function () {
+        if (elBtnSalvarBackup) {
+          elBtnSalvarBackup.disabled = false;
+          elBtnSalvarBackup.textContent = 'Salvar backup';
+        }
+        showBackupMsg('Erro de conexão. Verifique a URL da API em js/config.js.', true);
+      });
+  }
+
+  function restoreBackup() {
+    var token = getToken();
+    if (!token) return logout();
+    var backupId = elSelectBackup && elSelectBackup.value ? elSelectBackup.value.trim() : '';
+    if (!backupId) {
+      showBackupMsg('Escolha um backup na lista para restaurar.', true);
+      return;
+    }
+    if (!confirm('Isso vai substituir as abas Items, Users e Orders pelos dados do backup. Os dados atuais serão perdidos. Continuar?')) {
+      return;
+    }
+    if (elBtnRestaurarBackup) {
+      elBtnRestaurarBackup.disabled = true;
+      elBtnRestaurarBackup.textContent = 'Restaurando…';
+    }
+    showBackupMsg('');
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restoreBackup', token: token, backupId: backupId })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (elBtnRestaurarBackup) {
+          elBtnRestaurarBackup.disabled = false;
+          elBtnRestaurarBackup.textContent = 'Restaurar este backup';
+        }
+        if (data && data.ok) {
+          showBackupMsg((data.message || 'Backup restaurado.') + ' Atualize a página para ver os dados.', false);
+          loadItens();
+          loadOrders();
+        } else {
+          showBackupMsg((data && data.error) || 'Erro ao restaurar.', true);
+        }
+      })
+      .catch(function () {
+        if (elBtnRestaurarBackup) {
+          elBtnRestaurarBackup.disabled = false;
+          elBtnRestaurarBackup.textContent = 'Restaurar este backup';
+        }
+        showBackupMsg('Erro de conexão.', true);
+      });
+  }
+
+  function exportCsv() {
+    if (currentOrders.length === 0) {
+      showMsg('Nenhum pedido para exportar.', true);
+      return;
+    }
+    var headers = ['orderId', 'timestamp', 'nome', 'email', 'telefone', 'bairro', 'observacoes', 'status', 'itens'];
+    var rows = [headers.join(',')];
+    currentOrders.forEach(function (o) {
+      var itensStr = (o.itens || '').replace(/"/g, '""');
+      var status = (o.status || 'ativo').toString().replace(/"/g, '""');
+      rows.push([
+        '"' + (o.orderId || '').replace(/"/g, '""') + '"',
+        '"' + (o.timestamp || '').replace(/"/g, '""') + '"',
+        '"' + (o.nome || '').replace(/"/g, '""') + '"',
+        '"' + (o.email || '').replace(/"/g, '""') + '"',
+        '"' + (o.telefone || '').replace(/"/g, '""') + '"',
+        '"' + (o.bairro || '').replace(/"/g, '""') + '"',
+        '"' + (o.observacoes || '').replace(/"/g, '""') + '"',
+        '"' + status + '"',
+        '"' + itensStr + '"'
+      ].join(','));
+    });
+    var csv = rows.join('\r\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pedidos-compra-coletiva-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showMsg('CSV exportado.', false);
+  }
+
+  var elFormLogin = document.getElementById('adminFormLogin');
+  if (elFormLogin) elFormLogin.addEventListener('submit', login);
+  if (elBtnSair) elBtnSair.addEventListener('click', logout);
+  if (elBtnSalvar) elBtnSalvar.addEventListener('click', saveItens);
+  if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
+  if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
+  if (elBtnCarregarBackups) elBtnCarregarBackups.addEventListener('click', loadBackups);
+  if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
+  var elBtnSalvarRegioes = document.getElementById('adminBtnSalvarRegioes');
+  if (elBtnSalvarRegioes) elBtnSalvarRegioes.addEventListener('click', saveRegioes);
+  var elFormOrderConfig = document.getElementById('adminFormOrderConfig');
+  if (elFormOrderConfig) elFormOrderConfig.addEventListener('submit', saveOrderConfig);
+  document.querySelectorAll('.admin-main-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setMainTab(tab.getAttribute('data-main-tab') || 'new');
+    });
+  });
+  document.querySelectorAll('.admin-orders-tabs .admin-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setOrdersTab(tab.getAttribute('data-orders-tab') || '');
+    });
+  });
+  var formNovoPedido = document.getElementById('adminFormNovoPedido');
+  if (formNovoPedido) formNovoPedido.addEventListener('submit', submitNovoPedido);
+  if (elItensTable) {
+    elItensTable.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'adminBtnAdicionarItem') addNewItemRow();
+    });
+  }
+
+  checkAuth();
+})();

@@ -1,0 +1,6 @@
+# clasp usa rootDir=google-apps-script; ignore é aplicado dentro dele.
+# Este arquivo na raiz garante que, ao rodar clasp da raiz, nada extra seja enviado.
+google-apps-script/utils.js
+google-apps-script/__tests__
+google-apps-script/__tests__/
+google-apps-script/**/*.test.js

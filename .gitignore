@@ -1,0 +1,7 @@
+# Clasp - não versionar credenciais nem scriptId pessoal
+.clasp.json
+.clasprc.json
+*-creds.json
+
+# Dependências
+node_modules/

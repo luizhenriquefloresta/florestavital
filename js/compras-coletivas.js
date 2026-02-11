@@ -23,8 +23,11 @@
   var ccSair = document.getElementById('ccSair');
   var catalogItems = [];
   var lastMeusPedidosOrders = [];
+  var pendingOrder = null;
   var orderConfig = { custoAdministrativoPercentual: 0, contribuicaoSugerida: [0, 2, 5] };
   var regioes = [];
+  var resumoTotals = { subtotalItens: 0, valorFrete: 0, custoAdminValor: 0, contribuicaoVoluntaria: 0, total: 0 };
+  var resumoStepBound = false;
 
   function esc(s) {
     if (s == null) return '';
@@ -144,6 +147,107 @@
         }
       })
       .catch(function () {});
+  }
+
+  function setupResumoStep() {
+    if (!pendingOrder || !pendingOrder.itens) return;
+    var elItens = document.getElementById('ccResumoItens');
+    var elRegiao = document.getElementById('ccSelectRegiao');
+    var elFrete = document.getElementById('ccFreteValor');
+    var elSugestoes = document.getElementById('ccContribSugestoes');
+    var elContrib = document.getElementById('ccContribInput');
+    var elTotais = document.getElementById('ccResumoTotais');
+    if (!elItens) return;
+
+    var subtotal = 0;
+    var html = '<h3>Itens</h3><ul style="list-style:none; padding:0; margin:0;">';
+    for (var id in pendingOrder.itens) {
+      if (!Object.prototype.hasOwnProperty.call(pendingOrder.itens, id)) continue;
+      var qty = parseInt(pendingOrder.itens[id], 10) || 0;
+      if (qty <= 0) continue;
+      var item = catalogItems.filter(function (i) { return i.id === id; })[0];
+      var preco = item ? (parseFloat(item.preco) || 0) : 0;
+      var nome = item ? (item.nome || id) : id;
+      var linha = preco * qty;
+      subtotal += linha;
+      html += '<li style="padding: var(--space-xs) 0;">' + esc(nome) + ' × ' + qty + ' — R$ ' + linha.toFixed(2).replace('.', ',') + '</li>';
+    }
+    html += '</ul><p style="margin-top: var(--space-sm); font-weight: 600;">Subtotal itens: R$ ' + subtotal.toFixed(2).replace('.', ',') + '</p>';
+    elItens.innerHTML = html;
+    resumoTotals.subtotalItens = subtotal;
+
+    if (elRegiao) {
+      elRegiao.innerHTML = '<option value="">— Selecione a região —</option>';
+      regioes.forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = r.regiao;
+        opt.setAttribute('data-frete', String(r.frete || 0));
+        opt.textContent = r.regiao + ' — R$ ' + (parseFloat(r.frete) || 0).toFixed(2).replace('.', ',');
+        elRegiao.appendChild(opt);
+      });
+    }
+
+    var retirada = document.getElementById('ccRetirada');
+    var entregaRegiao = document.getElementById('ccEntregaRegiao');
+    if (retirada) retirada.checked = true;
+    if (elRegiao) elRegiao.style.display = 'none';
+    if (elFrete) elFrete.textContent = 'Retirada: sem frete.';
+
+    function updateEntregaDisplay() {
+      var isRetirada = retirada && retirada.checked;
+      if (elRegiao) elRegiao.style.display = isRetirada ? 'none' : 'block';
+      if (elRegiao && !isRetirada && elRegiao.value) {
+        var opt = elRegiao.options[elRegiao.selectedIndex];
+        var f = parseFloat(opt && opt.getAttribute('data-frete')) || 0;
+        resumoTotals.valorFrete = f;
+        if (elFrete) elFrete.textContent = 'Frete: R$ ' + f.toFixed(2).replace('.', ',');
+      } else {
+        resumoTotals.valorFrete = 0;
+        if (elFrete) elFrete.textContent = isRetirada ? 'Retirada: sem frete.' : 'Selecione a região.';
+      }
+      updateResumoTotais();
+    }
+    function updateResumoTotais() {
+      var contribPct = parseFloat(elContrib && elContrib.value) || 0;
+      resumoTotals.custoAdminValor = resumoTotals.subtotalItens * (orderConfig.custoAdministrativoPercentual || 0) / 100;
+      resumoTotals.contribuicaoVoluntaria = resumoTotals.subtotalItens * contribPct / 100;
+      resumoTotals.total = resumoTotals.subtotalItens + resumoTotals.valorFrete + resumoTotals.custoAdminValor + resumoTotals.contribuicaoVoluntaria;
+      if (elTotais) {
+        elTotais.innerHTML =
+          '<p><strong>Custo administrativo (' + (orderConfig.custoAdministrativoPercentual || 0) + '%):</strong> R$ ' + resumoTotals.custoAdminValor.toFixed(2).replace('.', ',') + '</p>' +
+          '<p><strong>Contribuição voluntária:</strong> R$ ' + resumoTotals.contribuicaoVoluntaria.toFixed(2).replace('.', ',') + '</p>' +
+          '<p style="font-size: 1.1rem;"><strong>Total: R$ ' + resumoTotals.total.toFixed(2).replace('.', ',') + '</strong></p>';
+      }
+    }
+    if (!resumoStepBound) {
+      resumoStepBound = true;
+      if (retirada) retirada.addEventListener('change', updateEntregaDisplay);
+      if (entregaRegiao) entregaRegiao.addEventListener('change', updateEntregaDisplay);
+      if (elRegiao) elRegiao.addEventListener('change', updateEntregaDisplay);
+      if (elContrib) elContrib.addEventListener('input', updateResumoTotais);
+    }
+
+    if (elSugestoes) {
+      elSugestoes.innerHTML = '';
+      (orderConfig.contribuicaoSugerida || [0, 2, 5]).forEach(function (pct) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-secondary btn-sm';
+        btn.textContent = pct + '%';
+        btn.addEventListener('click', function () {
+          if (elContrib) elContrib.value = pct;
+          updateResumoTotais();
+        });
+        elSugestoes.appendChild(btn);
+      });
+    }
+    if (elContrib) elContrib.value = 0;
+    updateResumoTotais();
+  }
+
+  function setupPagamentoStep() {
+    var elTotal = document.getElementById('ccPagamentoTotal');
+    if (elTotal) elTotal.textContent = 'Total do pedido: R$ ' + (resumoTotals.total || 0).toFixed(2).replace('.', ',');
   }
 
   function isSafeImageUrl(url) {
@@ -637,12 +741,10 @@
         .then(function (data) {
           if (btn) { btn.disabled = false; btn.textContent = 'Ver resumo do pedido'; }
           if (data && data.ok && data.orderId) {
-            try {
-              localStorage.setItem('ccTelefone', u.telefone);
-              localStorage.setItem('ccOrderId', data.orderId);
-            } catch (err) {}
-            window.open('resumo-pedido.html?orderId=' + encodeURIComponent(data.orderId), '_blank');
-            showMsg(msgCompra, 'Pedido nº ' + data.orderId + ' criado! Uma nova aba foi aberta com o resumo.', false);
+            pendingOrder = { nome: nome, bairro: bairro, email: email, obs: obs, itens: itens, orderId: data.orderId };
+            setCcTab('resumo');
+            setupResumoStep();
+            showMsg(msgCompra, 'Pedido nº ' + data.orderId + ' registrado! Ajuste região e contribuição na aba Resumo.', false);
             formOrder.reset();
             fillOrderFromUser();
             if (inpList) for (var k = 0; k < inpList.length; k++) inpList[k].value = 0;
@@ -658,6 +760,75 @@
     });
   }
 
+  var ccBtnVoltarCesta = document.getElementById('ccBtnVoltarCesta');
+  var ccBtnIrPagamento = document.getElementById('ccBtnIrPagamento');
+  var ccBtnVoltarResumo = document.getElementById('ccBtnVoltarResumo');
+  var ccBtnConcluir = document.getElementById('ccBtnConcluir');
+  if (ccBtnVoltarCesta) ccBtnVoltarCesta.addEventListener('click', function () { setCcTab('fazer'); });
+  if (ccBtnIrPagamento) ccBtnIrPagamento.addEventListener('click', function () {
+    var msgResumoEl = document.getElementById('msgResumo');
+    if (msgResumoEl) { msgResumoEl.textContent = ''; msgResumoEl.style.display = 'none'; }
+    var u = getUser();
+    if (!u || !u.telefone || !pendingOrder || !pendingOrder.orderId) return;
+    var retirada = document.getElementById('ccRetirada');
+    var regiaoSel = document.getElementById('ccSelectRegiao');
+    var regiao = '';
+    var valorFrete = 0;
+    if (!(retirada && retirada.checked) && regiaoSel && regiaoSel.value) {
+      regiao = regiaoSel.value;
+      var opt = regiaoSel.options[regiaoSel.selectedIndex];
+      valorFrete = parseFloat(opt && opt.getAttribute('data-frete')) || 0;
+    }
+    var btn = document.getElementById('ccBtnIrPagamento');
+    if (btn) { btn.disabled = true; btn.textContent = 'Atualizando…'; }
+    fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'updateOrderTotals',
+        orderId: pendingOrder.orderId,
+        telefone: u.telefone,
+        regiao: regiao,
+        valorFrete: valorFrete,
+        custoAdminValor: resumoTotals.custoAdminValor,
+        contribuicaoVoluntaria: resumoTotals.contribuicaoVoluntaria,
+        subtotalItens: resumoTotals.subtotalItens,
+        total: resumoTotals.total
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Ir para pagamento'; }
+        if (data && data.ok) {
+          setCcTab('pagamento');
+          setupPagamentoStep();
+        } else {
+          var msgResumo = document.getElementById('msgResumo');
+          if (msgResumo) {
+            msgResumo.textContent = (data && data.error) || 'Erro ao atualizar.';
+            msgResumo.className = 'form-msg form-msg-error';
+            msgResumo.style.display = 'block';
+          }
+        }
+      })
+      .catch(function () {
+        if (btn) { btn.disabled = false; btn.textContent = 'Ir para pagamento'; }
+        var msgResumo = document.getElementById('msgResumo');
+        if (msgResumo) {
+          msgResumo.textContent = 'Erro de conexão. Tente de novo.';
+          msgResumo.className = 'form-msg form-msg-error';
+          msgResumo.style.display = 'block';
+        }
+      });
+  });
+  if (ccBtnVoltarResumo) ccBtnVoltarResumo.addEventListener('click', function () { setCcTab('resumo'); });
+  if (ccBtnConcluir) ccBtnConcluir.addEventListener('click', function () {
+    pendingOrder = null;
+    setCcTab('fazer');
+    loadMeusPedidos();
+    if (msgCompra) showMsg(msgCompra, '', false);
+  });
+
   // —— Sair ——
   if (ccSair) {
     ccSair.addEventListener('click', function (e) {
@@ -670,9 +841,9 @@
     });
   }
 
-  // —— Abas Fazer pedido | Meus pedidos ——
+  // —— Abas Fazer pedido | Meus pedidos | Resumo | Pagamento ——
   function setCcTab(panel) {
-    ['ccTabFazer', 'ccTabMeus'].forEach(function (id) {
+    ['ccTabFazer', 'ccTabMeus', 'ccTabResumo', 'ccTabPagamento'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) {
         var key = id.replace('ccTab', '').toLowerCase();
@@ -684,6 +855,20 @@
       t.classList.toggle('active', isActive);
       t.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
+    if (panel === 'resumo') {
+      if (pendingOrder) setupResumoStep();
+      else {
+        var elItens = document.getElementById('ccResumoItens');
+        if (elItens) elItens.innerHTML = '<p class="form-msg" style="margin: 0;">Preencha a cesta na aba Fazer pedido e clique em <strong>Ver resumo do pedido</strong>.</p>';
+      }
+    }
+    if (panel === 'pagamento') {
+      if (pendingOrder) setupPagamentoStep();
+      else {
+        var elTot = document.getElementById('ccPagamentoTotal');
+        if (elTot) elTot.textContent = 'Preencha a cesta e vá ao resumo primeiro.';
+      }
+    }
   }
   document.querySelectorAll('.cc-tabs .cc-tab').forEach(function (tab) {
     tab.addEventListener('click', function () {

@@ -154,6 +154,7 @@
   function goToPagamento() {
     var btn = document.getElementById('rpBtnIrPagamento');
     if (btn) { btn.disabled = true; btn.textContent = 'Atualizando…'; }
+    var newWin = window.open('about:blank', '_blank');
 
     var retirada = document.getElementById('rpRetirada');
     var regiaoSel = document.getElementById('rpSelectRegiao');
@@ -184,12 +185,19 @@
       .then(function (data) {
         if (btn) { btn.disabled = false; btn.textContent = 'Ir para pagamento'; }
         if (data && data.ok) {
-          window.open('pagamento.html?orderId=' + encodeURIComponent(orderId), '_blank');
+          var pagUrl = 'pagamento.html?orderId=' + encodeURIComponent(orderId);
+          if (newWin && !newWin.closed) {
+            newWin.location.href = pagUrl;
+          } else {
+            window.location.href = pagUrl;
+          }
         } else {
+          if (newWin && !newWin.closed) newWin.close();
           showError((data && data.error) || 'Erro ao atualizar. Tente de novo.');
         }
       })
       .catch(function () {
+        if (newWin && !newWin.closed) newWin.close();
         if (btn) { btn.disabled = false; btn.textContent = 'Ir para pagamento'; }
         showError('Erro de conexão. Tente de novo.');
       });

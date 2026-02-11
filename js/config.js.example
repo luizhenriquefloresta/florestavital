@@ -1,0 +1,11 @@
+/**
+ * Configuração do backend da Compra Coletiva.
+ * Copie este arquivo para config.js e coloque a sua URL:
+ *   cp config.js.example config.js   (ou no Windows: copy config.js.example config.js)
+ * Opções:
+ * 1) URL direta do Web App (Implantar no Apps Script → copiar URL que termina em /exec). Se der CORS, use a opção 2.
+ * 2) URL de um proxy CORS (ex.: Cloudflare Worker) — veja docs/CORS-APPS-SCRIPT.md.
+ * Não coloque senhas ou tokens aqui; eles ficam no Apps Script (Propriedades do projeto).
+ * Ver docs/CONFIGURACAO-POR-AMBIENTE.md para o que configurar ao usar o projeto no seu ambiente.
+ */
+var COMPRAS_COLETIVAS_API = 'COLE_AQUI_A_URL_DO_WEB_APP_OU_DO_PROXY';

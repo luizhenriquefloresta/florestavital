@@ -1,0 +1,3 @@
+# Não enviar ao Apps Script: utils.js é só para testes em Node; __tests__ também.
+utils.js
+__tests__/

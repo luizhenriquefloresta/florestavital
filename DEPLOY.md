@@ -36,3 +36,7 @@ A Compra Coletiva usa Google Sheets + Google Apps Script como backend. Para conf
 
 1. Siga o passo a passo em **docs/SETUP-DEPLOY-COMPRAS-COLETIVAS.md** (planilha, Apps Script, token, URL no `js/config.js`).
 2. Use o **docs/CHECKLIST-TESTES-COMPRAS-COLETIVAS.md** para validar o MVP após o deploy.
+
+### Deploy automático do Apps Script (opcional)
+
+É possível enviar o código de `google-apps-script/` para o projeto no Google a cada push em `main`, usando **clasp** e GitHub Actions. Assim você não precisa copiar e colar o `Code.gs` manualmente. Configuração em: **docs/DEPLOY-APPS-SCRIPT.md**.

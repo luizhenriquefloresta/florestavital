@@ -1,0 +1,48 @@
+# Envia o código de google-apps-script/ para o projeto Google Apps Script (Compra Coletiva).
+# Configuração única: veja docs/DEPLOY-APPS-SCRIPT.md
+name: Deploy Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'google-apps-script/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Configure clasp credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "::error::Secret CLASPRC_JSON não configurado. Veja docs/DEPLOY-APPS-SCRIPT.md"
+            exit 1
+          fi
+          echo "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+
+      - name: Configure project
+        env:
+          CLASP_SCRIPT_ID: ${{ secrets.CLASP_SCRIPT_ID }}
+        run: |
+          if [ -z "$CLASP_SCRIPT_ID" ]; then
+            echo "::error::Secret CLASP_SCRIPT_ID não configurado. Veja docs/DEPLOY-APPS-SCRIPT.md"
+            exit 1
+          fi
+          echo "{\"scriptId\":\"$CLASP_SCRIPT_ID\",\"rootDir\":\"google-apps-script\"}" > .clasp.json
+
+      - name: Push to Apps Script
+        run: npx clasp push --force

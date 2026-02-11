@@ -42,7 +42,9 @@ jobs:
             echo "::error::CLASP_SCRIPT_ID não configurado. Use Secrets (não Variables). Veja docs/DEPLOY-APPS-SCRIPT.md"
             exit 1
           fi
-          echo "{\"scriptId\":\"$CLASP_SCRIPT_ID\",\"rootDir\":\"google-apps-script\"}" > .clasp.json
+          # .clasp.json dentro de google-apps-script para o .claspignore local ser aplicado (evita push de __tests__ e utils.js)
+          echo "{\"scriptId\":\"$CLASP_SCRIPT_ID\"}" > google-apps-script/.clasp.json
 
       - name: Push to Apps Script
+        working-directory: google-apps-script
         run: npx clasp push --force

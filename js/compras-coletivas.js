@@ -631,6 +631,24 @@
     });
   }
 
+  // —— Abas Fazer pedido | Meus pedidos ——
+  function setCcTab(panel) {
+    var tabFazer = document.getElementById('ccTabFazer');
+    var tabMeus = document.getElementById('ccTabMeus');
+    if (tabFazer) tabFazer.classList.toggle('active', panel === 'fazer');
+    if (tabMeus) tabMeus.classList.toggle('active', panel === 'meus');
+    document.querySelectorAll('.cc-tabs .cc-tab').forEach(function (t) {
+      var isActive = (t.getAttribute('data-cc-tab') || '') === panel;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('.cc-tabs .cc-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setCcTab(tab.getAttribute('data-cc-tab') || 'fazer');
+    });
+  });
+
   // Início: já logado e verificado?
   var u = getUser();
   if (u && u.telefone && u.nome && getVerified()) {

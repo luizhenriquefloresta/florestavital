@@ -56,6 +56,12 @@
     .cc-modal[hidden] { display: none; }
     .cc-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
     .cc-modal-content { position: relative; max-width: 100%; max-height: 90vh; overflow-y: auto; width: 100%; }
+    .cc-tabs { display: flex; gap: 2px; margin-bottom: var(--space-md); border-bottom: 2px solid var(--sand); }
+    .cc-tab { padding: var(--space-sm) var(--space-md); font-size: 0.95rem; font-weight: 600; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; background: transparent; color: var(--text-soft); cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+    .cc-tab:hover { color: var(--forest); background: rgba(45, 74, 62, 0.06); }
+    .cc-tab.active { color: var(--forest); border-bottom-color: var(--sage); background: rgba(107, 142, 106, 0.08); }
+    .cc-tab-panel { display: none; }
+    .cc-tab-panel.active { display: block; }
     @media (min-width: 600px) {
       .cc-card { max-width: 520px; margin-left: auto; margin-right: auto; }
     }
@@ -163,11 +169,11 @@
               <span><strong id="ccUserName"></strong> · <span id="ccUserPhone"></span></span>
               <a href="#" id="ccSair" class="cc-link">Sair</a>
             </div>
-            <div class="form-divider" id="ccMeusPedidosWrap">
-              <h3>Meus pedidos</h3>
-              <p id="ccMeusPedidosMsg" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Carregando…</p>
-              <ul id="ccMeusPedidosLista" class="cc-pedidos-lista" aria-label="Lista de pedidos"></ul>
+            <div class="cc-tabs" role="tablist" aria-label="Fazer pedido ou ver meus pedidos">
+              <button type="button" class="cc-tab active" role="tab" aria-selected="true" data-cc-tab="fazer">Fazer pedido</button>
+              <button type="button" class="cc-tab" role="tab" aria-selected="false" data-cc-tab="meus">Meus pedidos</button>
             </div>
+            <div id="ccTabFazer" class="cc-tab-panel active" role="tabpanel">
             <form id="formCompraColetiva" novalidate>
               <div class="form-divider">
                 <h3>Seus dados no pedido</h3>
@@ -199,6 +205,14 @@
               <div id="msgCompra" class="form-msg" role="alert" aria-live="polite"></div>
               <button type="submit" class="btn btn-primary cc-btn" id="btnEnviarCompra">Enviar pedido</button>
             </form>
+            </div>
+            <div id="ccTabMeus" class="cc-tab-panel" role="tabpanel">
+              <div class="form-divider" id="ccMeusPedidosWrap">
+                <h3>Meus pedidos</h3>
+                <p id="ccMeusPedidosMsg" style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-md);">Carregando…</p>
+                <ul id="ccMeusPedidosLista" class="cc-pedidos-lista" aria-label="Lista de pedidos"></ul>
+              </div>
+            </div>
           </div>
         </div>
         <!-- Modal editar pedido -->

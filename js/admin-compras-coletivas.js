@@ -32,7 +32,8 @@
   }
   function backupUrl(action, token) {
     var base = (apiBase || '').replace(/\/$/, '');
-    return base + '/' + action + '?' + (token ? 'token=' + encodeURIComponent(token) : '');
+    var sep = base.indexOf('?') >= 0 ? '&' : '?';
+    return base + sep + 'action=' + encodeURIComponent(action) + (token ? '&token=' + encodeURIComponent(token) : '');
   }
   var elNewNome = null;
   var elNewUnidade = null;
@@ -186,8 +187,18 @@
         '<td><input type="number" min="0" step="0.01" class="admin-input admin-preco" value="' + (it.preco || '') + '" data-id="' + escapeHtml(it.id) + '" style="width:70px" aria-label="Preço"></td>' +
         '<td><input type="number" min="0" class="admin-input admin-ordem" value="' + (it.ordem || 0) + '" data-id="' + escapeHtml(it.id) + '" style="width:50px" aria-label="Ordem"></td>' +
         '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>' +
-        '<td></td>';
+        '<td><button type="button" class="btn btn-secondary btn-sm admin-btn-excluir-item" data-item-id="' + escapeHtml(it.id) + '" aria-label="Excluir item ' + escapeHtml(it.nome) + '">Excluir</button></td>';
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.admin-btn-excluir-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-item-id');
+        if (!id) return;
+        if (!confirm('Excluir o item "' + id + '" do catálogo? Clique em "Salvar alterações" para gravar na planilha.')) return;
+        currentItems = (currentItems || []).filter(function (it) { return (it.id || '') !== id; });
+        renderItens(currentItems);
+        showMsg('Item removido da lista. Clique em "Salvar alterações" para gravar na planilha.', false);
+      });
     });
     renderNovoPedidoItens();
   }
@@ -215,11 +226,13 @@
   }
 
   function setMainTab(panel) {
-    var isNew = panel === 'new';
-    var elNew = document.getElementById('adminPanelNew');
-    var elList = document.getElementById('adminPanelList');
-    if (elNew) elNew.classList.toggle('active', isNew);
-    if (elList) elList.classList.toggle('active', !isNew);
+    ['adminPanelNew', 'adminPanelList', 'adminPanelCatalog', 'adminPanelResumo'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) {
+        var key = id.replace('adminPanel', '').toLowerCase();
+        el.classList.toggle('active', key === panel);
+      }
+    });
     document.querySelectorAll('.admin-main-tab').forEach(function (t) {
       var tabPanel = t.getAttribute('data-main-tab');
       var active = tabPanel === panel;
@@ -729,7 +742,8 @@
     showMsg('CSV exportado.', false);
   }
 
-  if (elBtnEntrar) elBtnEntrar.addEventListener('click', login);
+  var elFormLogin = document.getElementById('adminFormLogin');
+  if (elFormLogin) elFormLogin.addEventListener('submit', login);
   if (elBtnSair) elBtnSair.addEventListener('click', logout);
   if (elBtnSalvar) elBtnSalvar.addEventListener('click', saveItens);
   if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);

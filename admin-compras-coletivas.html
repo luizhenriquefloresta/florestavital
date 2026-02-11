@@ -87,16 +87,27 @@
     html[data-theme="dark"] .admin-wrap select:focus {
       border-color: var(--sage);
     }
-    /* Abas principais: Novo pedido | Pedidos */
-    .admin-main-tabs { display: flex; gap: 2px; margin-bottom: var(--space-lg); border-bottom: 2px solid var(--sand); }
+    /* Abas principais: mobile first, 4 abas irmãs */
+    .admin-main-tabs {
+      display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: var(--space-md);
+      border-bottom: 2px solid var(--sand); overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
     .admin-main-tab {
-      padding: var(--space-md) var(--space-lg); font-size: 1rem; font-weight: 600; border: none; border-bottom: 3px solid transparent;
-      margin-bottom: -2px; background: transparent; color: var(--text-soft); cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      padding: var(--space-sm) var(--space-md); font-size: 0.9rem; font-weight: 600; white-space: nowrap;
+      border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+      background: transparent; color: var(--text-soft); cursor: pointer;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0; transition: color 0.2s, border-color 0.2s, background 0.2s;
     }
     .admin-main-tab:hover { color: var(--forest); background: rgba(45, 74, 62, 0.06); }
     .admin-main-tab.active { color: var(--forest); border-bottom-color: var(--sage); background: rgba(107, 142, 106, 0.08); }
     html[data-theme="dark"] .admin-main-tab.active { background: rgba(107, 142, 106, 0.12); }
+    @media (max-width: 480px) {
+      .admin-main-tab { padding: var(--space-xs) var(--space-sm); font-size: 0.85rem; }
+    }
+    @media (min-width: 600px) {
+      .admin-main-tabs { margin-bottom: var(--space-lg); }
+      .admin-main-tab { padding: var(--space-md) var(--space-lg); font-size: 1rem; }
+    }
     .admin-panel-content { display: none; }
     .admin-panel-content.active { display: block; }
     /* Form Novo pedido */
@@ -141,11 +152,13 @@
       <div class="card">
         <h1 style="color: var(--forest); margin-bottom: var(--space-md); font-size: 1.5rem;">Configuração — apenas admin</h1>
         <p style="color: var(--text-soft); margin-bottom: var(--space-md); font-size: 0.95rem;">Acesso restrito ao administrador. Digite o token configurado no Google Apps Script (Propriedades do projeto → ADMIN_TOKEN).</p>
-        <div class="form-group">
-          <label for="adminToken">Token</label>
-          <input type="password" id="adminToken" class="admin-input" placeholder="Token" autocomplete="off" aria-label="Token de administrador">
-        </div>
-        <button type="button" class="btn btn-primary" id="adminBtnEntrar">Entrar</button>
+        <form id="adminFormLogin" autocomplete="off">
+          <div class="form-group">
+            <label for="adminToken">Token</label>
+            <input type="password" id="adminToken" class="admin-input" placeholder="Token" autocomplete="off" aria-label="Token de administrador">
+          </div>
+          <button type="submit" class="btn btn-primary" id="adminBtnEntrar">Entrar</button>
+        </form>
       </div>
     </div>
 
@@ -158,6 +171,8 @@
       <div class="admin-main-tabs" role="tablist" aria-label="Navegação principal">
         <button type="button" class="admin-main-tab active" role="tab" aria-selected="true" data-main-tab="new">Novo pedido</button>
         <button type="button" class="admin-main-tab" role="tab" aria-selected="false" data-main-tab="list">Pedidos</button>
+        <button type="button" class="admin-main-tab" role="tab" aria-selected="false" data-main-tab="catalog">Catálogo</button>
+        <button type="button" class="admin-main-tab" role="tab" aria-selected="false" data-main-tab="resumo">Resumo por item</button>
       </div>
 
       <div id="adminPanelNew" class="admin-panel-content active" role="tabpanel">
@@ -229,36 +244,40 @@
         </section>
       </div>
 
-      <section class="admin-section">
-        <h2>Itens do catálogo</h2>
-        <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Edite os itens na tabela; use a primeira linha para adicionar um novo item. Depois clique em "Salvar alterações".</p>
-        <div class="admin-actions" style="margin-bottom: var(--space-sm);">
-          <button type="button" class="btn btn-primary btn-sm" id="adminBtnSalvar">Salvar alterações</button>
-        </div>
-        <div class="admin-table-wrap">
-          <table class="admin-table" id="adminItensTable" aria-label="Itens do catálogo">
-            <thead>
-              <tr>
-                <th>Id</th>
-                <th>Nome</th>
-                <th>Unidade</th>
-                <th>Ativo</th>
-                <th>Estoque</th>
-                <th>Preço</th>
-                <th>Ordem</th>
-                <th>Imagem (URL)</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
+      <div id="adminPanelCatalog" class="admin-panel-content" role="tabpanel">
+        <section class="admin-section">
+          <h2>Itens do catálogo</h2>
+          <p style="font-size: 0.9rem; color: var(--text-soft); margin-bottom: var(--space-sm);">Edite os itens na tabela; use a primeira linha para adicionar um novo item. Depois clique em "Salvar alterações".</p>
+          <div class="admin-actions" style="margin-bottom: var(--space-sm);">
+            <button type="button" class="btn btn-primary btn-sm" id="adminBtnSalvar">Salvar alterações</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="adminItensTable" aria-label="Itens do catálogo">
+              <thead>
+                <tr>
+                  <th>Id</th>
+                  <th>Nome</th>
+                  <th>Unidade</th>
+                  <th>Ativo</th>
+                  <th>Estoque</th>
+                  <th>Preço</th>
+                  <th>Ordem</th>
+                  <th>Imagem (URL)</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
 
-      <section class="admin-section">
-        <h2>Resumo por item (últimos 20 pedidos)</h2>
-        <div id="adminResumoItens"></div>
-      </section>
+      <div id="adminPanelResumo" class="admin-panel-content" role="tabpanel">
+        <section class="admin-section">
+          <h2>Resumo por item (últimos 20 pedidos)</h2>
+          <div id="adminResumoItens"></div>
+        </section>
+      </div>
 
       <section class="admin-section admin-section-backup" style="text-align: center; max-width: 560px; margin-left: auto; margin-right: auto;">
         <h2>Backup da planilha</h2>

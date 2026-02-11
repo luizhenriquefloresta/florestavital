@@ -1,6 +1,8 @@
 /**
  * Configuração do backend da Compra Coletiva.
- * Substitua o valor abaixo pela sua URL (Web App ou proxy CORS) para o seu ambiente.
- * Opções: 1) URL do Web App (termina em /exec). 2) URL do proxy CORS. Ver docs/CONFIGURACAO-POR-AMBIENTE.md
+ * Use uma URL que esteja no ar. Se o proxy (Worker) der ERR_NAME_NOT_RESOLVED,
+ * use a URL direta do Web App: no Apps Script, Implantar > Implantar como aplicativo da Web >
+ * copie a URL que termina em /exec e cole abaixo.
+ * Ver docs/CONFIGURACAO-POR-AMBIENTE.md
  */
 var COMPRAS_COLETIVAS_API = 'https://cors-florestavital.rapha-sos.workers.dev';

@@ -552,15 +552,26 @@ function postItemsAdmin(items) {
     var id = String(it.id || '').trim();
     if (!id) continue;
     var rowNum = idToRowIndex[id];
-    if (!rowNum) continue;
+    var nome = it.hasOwnProperty('nome') ? String(it.nome || '').trim() : '';
+    var unidade = it.hasOwnProperty('unidade') ? String(it.unidade || '').trim() : 'un';
+    var ativo = it.hasOwnProperty('ativo') ? !!it.ativo : true;
+    var estoque = Number(it.estoque) || 0;
+    var preco = Number(it.preco) || 0;
+    var ordem = Number(it.ordem) || 0;
+    var imagem = it.hasOwnProperty('imagem') && it.imagem != null ? String(it.imagem).trim() : '';
 
-    if (it.hasOwnProperty('nome')) sheet.getRange(rowNum, 2).setValue(it.nome);
-    if (it.hasOwnProperty('unidade')) sheet.getRange(rowNum, 3).setValue(it.unidade);
-    if (it.hasOwnProperty('ativo')) sheet.getRange(rowNum, 4).setValue(it.ativo ? 'TRUE' : 'FALSE');
-    if (it.hasOwnProperty('estoque')) sheet.getRange(rowNum, 5).setValue(Number(it.estoque) || 0);
-    if (it.hasOwnProperty('preco')) sheet.getRange(rowNum, 6).setValue(Number(it.preco) || 0);
-    if (it.hasOwnProperty('ordem')) sheet.getRange(rowNum, 7).setValue(Number(it.ordem) || 0);
-    if (it.hasOwnProperty('imagem')) sheet.getRange(rowNum, 8).setValue(it.imagem != null ? String(it.imagem).trim() : '');
+    if (rowNum) {
+      if (it.hasOwnProperty('nome')) sheet.getRange(rowNum, 2).setValue(nome);
+      if (it.hasOwnProperty('unidade')) sheet.getRange(rowNum, 3).setValue(unidade);
+      if (it.hasOwnProperty('ativo')) sheet.getRange(rowNum, 4).setValue(ativo ? 'TRUE' : 'FALSE');
+      if (it.hasOwnProperty('estoque')) sheet.getRange(rowNum, 5).setValue(estoque);
+      if (it.hasOwnProperty('preco')) sheet.getRange(rowNum, 6).setValue(preco);
+      if (it.hasOwnProperty('ordem')) sheet.getRange(rowNum, 7).setValue(ordem);
+      if (it.hasOwnProperty('imagem')) sheet.getRange(rowNum, 8).setValue(imagem);
+    } else {
+      sheet.appendRow([id, nome, unidade, ativo ? 'TRUE' : 'FALSE', estoque, preco, ordem, imagem]);
+      idToRowIndex[id] = sheet.getLastRow();
+    }
   }
 
   return jsonResponse({ ok: true });
@@ -583,8 +594,10 @@ function getOrdersAdmin(limitStr) {
   var orders = [];
   for (var i = data.length - 1; i >= 0; i--) {
     var row = data[i];
+    var orderId = String(row[0] || '').trim();
+    if (!orderId) continue;
     orders.push({
-      orderId: String(row[0] || ''),
+      orderId: orderId,
       timestamp: String(row[1] || ''),
       nome: String(row[2] || ''),
       email: String(row[3] || ''),

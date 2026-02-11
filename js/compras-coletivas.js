@@ -24,6 +24,13 @@
   var catalogItems = [];
   var lastMeusPedidosOrders = [];
 
+  function esc(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function normalizePhone(t) {
     return (t || '').toString().replace(/\D/g, '');
   }
@@ -89,10 +96,10 @@
     if (codeVerify) codeVerify.value = '';
     if (msgVerify) msgVerify.textContent = '';
     if (u && u.email) {
-      if (emailDisplay) emailDisplay.innerHTML = 'E-mail: <strong>' + (u.email || '').replace(/@.*/, '@***') + '</strong>';
+      if (emailDisplay) emailDisplay.innerHTML = 'E-mail: <strong>' + esc((u.email || '').replace(/@.*/, '@***')) + '</strong>';
       if (emailVerify) emailVerify.value = u.email;
     } else {
-      if (emailDisplay) emailDisplay.innerHTML = 'Informe o e-mail onde deseja receber o código.';
+      if (emailDisplay) emailDisplay.textContent = 'Informe o e-mail onde deseja receber o código.';
       if (emailInputWrap) emailInputWrap.style.display = 'block';
     }
   }
@@ -129,23 +136,18 @@
       containerItens.innerHTML = '<p class="form-msg form-msg-error">Nenhum item disponível no momento.</p>';
       return;
     }
-    function esc(s) {
-      if (s == null) return '';
-      var d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
     items.forEach(function (item) {
       var row = document.createElement('div');
       row.className = 'item-row form-group';
       var idAttr = 'item-' + (item.id || '').replace(/\s/g, '-');
       var maxQty = Math.max(0, parseInt(item.estoque, 10) || 0);
-      var imgHtml = '';
+      var imgWrap = '';
       if (item.imagem && isSafeImageUrl(item.imagem)) {
-        imgHtml = '<img class="item-img" src="' + esc(item.imagem) + '" alt="" loading="lazy" width="56" height="56">';
+        var altText = esc(item.nome || '');
+        imgWrap = '<div class="item-img-wrap"><img class="item-img" src="' + esc(item.imagem) + '" alt="' + altText + '" loading="lazy" width="56" height="56" onerror="this.onerror=null;this.style.display=\'none\';if(this.parentElement)this.parentElement.style.display=\'none\';"></div>';
       }
       row.innerHTML =
-        (imgHtml ? '<div class="item-img-wrap">' + imgHtml + '</div>' : '') +
+        imgWrap +
         '<label for="' + idAttr + '">' + esc(item.nome) + ' <span class="unidade">(' + esc(item.unidade || 'un') + ')</span></label>' +
         '<input type="number" id="' + idAttr + '" name="' + esc(item.id) + '" min="0" max="' + maxQty + '" value="0" data-max="' + maxQty + '" placeholder="0" aria-label="Quantidade ' + esc(item.nome) + '">';
       containerItens.appendChild(row);
@@ -198,12 +200,6 @@
     var listEl = document.getElementById('ccMeusPedidosLista');
     var msgEl = document.getElementById('ccMeusPedidosMsg');
     if (!listEl) return;
-    function esc(s) {
-      if (s == null) return '';
-      var d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
     if (!orders || orders.length === 0) {
       msgEl.textContent = 'Você ainda não fez nenhum pedido.';
       listEl.innerHTML = '';
@@ -305,12 +301,6 @@
     var itensObj;
     try { itensObj = typeof itensStr === 'string' ? JSON.parse(itensStr) : itensStr; } catch (e) { itensObj = {}; }
     container.innerHTML = '';
-    function esc(s) {
-      if (s == null) return '';
-      var d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
     catalogItems.forEach(function (item) {
       var qty = parseInt(itensObj[item.id], 10) || 0;
       var maxQty = Math.max(0, parseInt(item.estoque, 10) || 0) + qty;

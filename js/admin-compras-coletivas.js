@@ -21,6 +21,15 @@
   var elSelectBackup = document.getElementById('adminSelectBackup');
   var elBtnRestaurarBackup = document.getElementById('adminBtnRestaurarBackup');
   var elBackupMsg = document.getElementById('adminBackupMsg');
+  var elBtnAdicionarItem = document.getElementById('adminBtnAdicionarItem');
+  var elNewId = document.getElementById('adminNewId');
+  var elNewNome = document.getElementById('adminNewNome');
+  var elNewUnidade = document.getElementById('adminNewUnidade');
+  var elNewAtivo = document.getElementById('adminNewAtivo');
+  var elNewEstoque = document.getElementById('adminNewEstoque');
+  var elNewPreco = document.getElementById('adminNewPreco');
+  var elNewOrdem = document.getElementById('adminNewOrdem');
+  var elNewImagem = document.getElementById('adminNewImagem');
 
   function getToken() {
     return sessionStorage.getItem(STORAGE_TOKEN) || '';
@@ -135,6 +144,37 @@
         '<td><input type="url" class="admin-input admin-imagem" value="' + escapeHtml(it.imagem || '') + '" data-id="' + escapeHtml(it.id) + '" placeholder="https://…" style="max-width:180px" aria-label="URL da imagem"></td>';
       tbody.appendChild(tr);
     });
+  }
+
+  function addNewItemRow() {
+    var id = (elNewId && elNewId.value || '').toString().trim();
+    if (!id) {
+      showMsg('Informe o Id do novo item (ex: cebola).', true);
+      if (elNewId) elNewId.focus();
+      return;
+    }
+    var nome = (elNewNome && elNewNome.value || '').trim();
+    var unidade = (elNewUnidade && elNewUnidade.value || '').trim() || 'un';
+    var ativo = elNewAtivo ? elNewAtivo.checked : true;
+    var estoque = parseInt(elNewEstoque && elNewEstoque.value, 10);
+    var preco = parseFloat(elNewPreco && elNewPreco.value);
+    var ordem = parseInt(elNewOrdem && elNewOrdem.value, 10);
+    var imagem = (elNewImagem && elNewImagem.value || '').trim();
+    if (isNaN(estoque)) estoque = 0;
+    if (isNaN(preco)) preco = 0;
+    if (isNaN(ordem)) ordem = 0;
+    var it = { id: id, nome: nome, unidade: unidade, ativo: ativo, estoque: estoque, preco: preco, ordem: ordem, imagem: imagem };
+    currentItems.push(it);
+    renderItens(currentItems);
+    if (elNewId) elNewId.value = '';
+    if (elNewNome) elNewNome.value = '';
+    if (elNewUnidade) elNewUnidade.value = '';
+    if (elNewAtivo) elNewAtivo.checked = true;
+    if (elNewEstoque) elNewEstoque.value = '0';
+    if (elNewPreco) elNewPreco.value = '0';
+    if (elNewOrdem) elNewOrdem.value = '0';
+    if (elNewImagem) elNewImagem.value = '';
+    showMsg('Item adicionado à lista. Clique em &quot;Salvar alterações&quot; para gravar na planilha.', false);
   }
 
   function loadItens() {
@@ -296,6 +336,7 @@
       return;
     }
     orders.forEach(function (o) {
+      if (!(o.orderId && String(o.orderId).trim())) return;
       var itensStr = '';
       try {
         var it = typeof o.itens === 'string' ? JSON.parse(o.itens) : (o.itens || {});
@@ -525,6 +566,7 @@
   if (elBtnExportCsv) elBtnExportCsv.addEventListener('click', exportCsv);
   if (elBtnSalvarBackup) elBtnSalvarBackup.addEventListener('click', saveBackup);
   if (elBtnRestaurarBackup) elBtnRestaurarBackup.addEventListener('click', restoreBackup);
+  if (elBtnAdicionarItem) elBtnAdicionarItem.addEventListener('click', addNewItemRow);
 
   checkAuth();
 })();
